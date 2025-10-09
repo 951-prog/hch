@@ -68,6 +68,10 @@
             0%, 100% { opacity: 0; }
             10%, 90% { opacity: 1; }
         }
+        /* Gemini Modal Styles */
+        #gemini-modal {
+            transition: opacity 0.3s ease-in-out;
+        }
     </style>
 </head>
 <body class="relative">
@@ -139,7 +143,7 @@
             <div id="results-container" class="flex-grow overflow-y-auto">
                 <div class="flex justify-between items-center mb-2">
                     <h2 class="text-lg font-semibold text-gray-800">搜尋結果</h2>
-                    <button id="ai-recommend-btn" class="hidden bg-green-500 text-white py-1 px-3 rounded-full text-sm hover:bg-green-600">✨ AI 推薦</button>
+                    <button id="gemini-recommend-btn" class="hidden bg-gradient-to-r from-purple-500 to-indigo-600 text-white py-1 px-3 rounded-full text-sm hover:opacity-90 transition-opacity">✨ Gemini 智能推薦</button>
                 </div>
                 <div id="results-list" class="space-y-2">
                     <p class="text-gray-500 text-center py-4">請先定位或搜尋，再執行搜尋。</p>
@@ -153,12 +157,26 @@
         </button>
 
         <!-- Loading Overlay -->
-        <div id="loading-overlay" class="hidden absolute inset-0 bg-black/50 z-50 flex items-center justify-center">
+        <div id="loading-overlay" class="hidden absolute inset-0 bg-black/50 z-50 flex items-center justify-center flex-col space-y-2">
             <div class="loader"></div>
+            <p id="loading-text" class="text-white">搜尋中...</p>
         </div>
         
         <!-- Info Popup -->
         <div id="info-popup" class="info-popup"></div>
+
+        <!-- Gemini Recommendation Modal -->
+        <div id="gemini-modal" class="hidden absolute inset-0 z-40 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 opacity-0">
+            <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 transform scale-95 transition-transform duration-300">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-purple-500 to-indigo-600">✨ Gemini 智能推薦</h2>
+                    <button id="close-gemini-modal-btn" class="text-gray-400 hover:text-gray-800">&times;</button>
+                </div>
+                <div id="gemini-results" class="space-y-4 max-h-[60vh] overflow-y-auto">
+                    <!-- Recommendations will be injected here -->
+                </div>
+            </div>
+        </div>
     </div>
 
     <!-- Leaflet JS -->
@@ -177,9 +195,13 @@
             const searchLocationInput = document.getElementById('search-location');
             const searchBtn = document.getElementById('search-btn');
             const resultsList = document.getElementById('results-list');
-            const aiRecommendBtn = document.getElementById('ai-recommend-btn');
+            const geminiRecommendBtn = document.getElementById('gemini-recommend-btn');
             const loadingOverlay = document.getElementById('loading-overlay');
+            const loadingText = document.getElementById('loading-text');
             const infoPopup = document.getElementById('info-popup');
+            const geminiModal = document.getElementById('gemini-modal');
+            const closeGeminiModalBtn = document.getElementById('close-gemini-modal-btn');
+            const geminiResultsContainer = document.getElementById('gemini-results');
 
             // State variables
             let map;
@@ -199,8 +221,6 @@
                     maxZoom: 19,
                     attribution: '© <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>'
                 }).addTo(map);
-                
-                // Add scale control
                 L.control.scale({ imperial: false, metric: true }).addTo(map);
             }
 
@@ -209,17 +229,31 @@
                 sidebar.classList.toggle('sidebar-closed');
             }
 
-            function showLoading(show) {
+            function showLoading(show, text = '搜尋中...') {
+                loadingText.textContent = text;
                 loadingOverlay.style.display = show ? 'flex' : 'none';
             }
 
             function showPopup(message) {
                 infoPopup.textContent = message;
                 infoPopup.style.display = 'block';
-                // Trigger reflow to restart animation
                 infoPopup.style.animation = 'none';
-                infoPopup.offsetHeight; // no-op
+                infoPopup.offsetHeight;
                 infoPopup.style.animation = 'fadeInOut 4s ease-in-out';
+            }
+            
+            function toggleGeminiModal(show) {
+                if (show) {
+                    geminiModal.classList.remove('hidden');
+                    setTimeout(() => {
+                        geminiModal.classList.remove('opacity-0');
+                        geminiModal.querySelector('div').classList.remove('scale-95');
+                    }, 10);
+                } else {
+                    geminiModal.classList.add('opacity-0');
+                    geminiModal.querySelector('div').classList.add('scale-95');
+                    setTimeout(() => geminiModal.classList.add('hidden'), 300);
+                }
             }
 
             // --- Location Functions ---
@@ -245,12 +279,10 @@
                 }
                 map.setView(latlng, zoom);
                 if (updateInput) {
-                     // Reverse geocode to get address
                      fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}`)
                         .then(response => response.json())
-                        .then(data => {
-                            searchLocationInput.value = data.display_name || '自訂座標';
-                        }).catch(err => {
+                        .then(data => { searchLocationInput.value = data.display_name || '自訂座標'; })
+                        .catch(err => {
                              console.error("Reverse geocoding error:", err);
                              searchLocationInput.value = '自訂座標';
                         });
@@ -258,7 +290,7 @@
             }
 
             function handleGeolocation() {
-                showLoading(true);
+                showLoading(true, '正在定位...');
                 navigator.geolocation.getCurrentPosition(
                     (position) => {
                         updateUserLocation(position.coords.latitude, position.coords.longitude);
@@ -295,11 +327,9 @@
 
             // --- Search & Results Functions ---
             function clearMapFeatures() {
-                // Clear previous results
                 if (searchCircle) map.removeLayer(searchCircle);
                 resultMarkers.forEach(marker => map.removeLayer(marker));
                 resultMarkers = [];
-                // Clear routing
                 if (routingControl) {
                     map.removeControl(routingControl);
                     routingControl = null;
@@ -309,26 +339,11 @@
             function getOverpassQuery(category, radius, lat, lon) {
                 let tags;
                 switch(category) {
-                    case 'food':
-                        tags = `["amenity"~"restaurant|fast_food|food_court"]["cuisine"]`;
-                        break;
-                    case 'coffee':
-                        tags = `["amenity"="cafe"]`;
-                        break;
-                    case 'drinks':
-                        tags = `["amenity"="cafe"]["cuisine"~"bubble_tea|tea"]`;
-                        break;
+                    case 'food': tags = `["amenity"~"restaurant|fast_food|food_court"]["cuisine"]`; break;
+                    case 'coffee': tags = `["amenity"="cafe"]`; break;
+                    case 'drinks': tags = `["amenity"="cafe"]["cuisine"~"bubble_tea|tea"]`; break;
                 }
-                
-                return `[out:json][timeout:25];
-                        (
-                          node${tags}(around:${radius},${lat},${lon});
-                          way${tags}(around:${radius},${lat},${lon});
-                          relation${tags}(around:${radius},${lat},${lon});
-                        );
-                        out body;
-                        >;
-                        out skel qt;`;
+                return `[out:json][timeout:25];(node${tags}(around:${radius},${lat},${lon});way${tags}(around:${radius},${lat},${lon});relation${tags}(around:${radius},${lat},${lon}););out body;>;out skel qt;`;
             }
 
             async function executeSearch() {
@@ -336,24 +351,16 @@
                     showPopup("請先使用定位功能或搜尋一個地點！");
                     return;
                 }
-
                 showLoading(true);
                 clearMapFeatures();
                 resultsList.innerHTML = '';
-                aiRecommendBtn.classList.add('hidden');
+                geminiRecommendBtn.classList.add('hidden');
 
                 const { lat, lng } = userMarker.getLatLng();
                 const category = document.getElementById('category').value;
                 const radius = parseInt(document.getElementById('radius').value, 10);
                 
-                // Draw search radius circle
-                searchCircle = L.circle([lat, lng], {
-                    radius: radius,
-                    color: 'blue',
-                    fillColor: '#3498db',
-                    fillOpacity: 0.1,
-                    weight: 1
-                }).addTo(map);
+                searchCircle = L.circle([lat, lng], { radius: radius, color: 'blue', fillColor: '#3498db', fillOpacity: 0.1, weight: 1 }).addTo(map);
                 map.fitBounds(searchCircle.getBounds());
 
                 const query = getOverpassQuery(category, radius, lat, lng);
@@ -364,16 +371,9 @@
                     const data = await response.json();
                     allResults = data.elements.filter(el => el.tags && el.tags.name).map(el => {
                         const pos = el.type === 'node' ? {lat: el.lat, lon: el.lon} : {lat: el.center.lat, lon: el.center.lon};
-                        return {
-                            id: el.id,
-                            name: el.tags.name,
-                            lat: pos.lat,
-                            lon: pos.lon
-                        };
+                        return { id: el.id, name: el.tags.name, lat: pos.lat, lon: pos.lon };
                     });
-                    
                     displayResults(allResults);
-
                 } catch (error) {
                     console.error("Overpass API error:", error);
                     resultsList.innerHTML = `<p class="text-gray-500 text-center py-4">搜尋時發生錯誤，請稍後再試。</p>`;
@@ -389,80 +389,110 @@
                 }
                 
                 results.forEach((item, index) => {
-                    // Create map marker
-                    const marker = L.marker([item.lat, item.lon]).addTo(map);
-                    marker.bindPopup(`<b>${item.name}</b>`);
+                    const marker = L.marker([item.lat, item.lon]).addTo(map).bindPopup(`<b>${item.name}</b>`);
                     resultMarkers.push(marker);
 
-                    // Create list item
                     const listItem = document.createElement('div');
                     listItem.className = 'p-3 bg-white rounded-lg shadow-sm cursor-pointer hover:bg-indigo-50 border border-gray-200';
-                    listItem.innerHTML = `
-                        <div class="font-semibold text-gray-800">${index + 1}. ${item.name}</div>
-                        <button class="route-btn text-sm text-white bg-blue-500 hover:bg-blue-600 rounded-full px-3 py-1 mt-2">規劃步行路線</button>
-                    `;
-
-                    // Click to pan to marker
+                    listItem.innerHTML = `<div class="font-semibold text-gray-800">${index + 1}. ${item.name}</div><button class="route-btn text-sm text-white bg-blue-500 hover:bg-blue-600 rounded-full px-3 py-1 mt-2">規劃步行路線</button>`;
+                    
                     listItem.addEventListener('click', (e) => {
                         if (e.target.classList.contains('route-btn')) return;
                         map.setView([item.lat, item.lon], 18);
                         marker.openPopup();
                     });
-
-                    // Route button click
-                    listItem.querySelector('.route-btn').addEventListener('click', () => {
-                        planRoute(item);
-                    });
-                    
+                    listItem.querySelector('.route-btn').addEventListener('click', () => planRoute(item));
                     resultsList.appendChild(listItem);
                 });
                 
-                aiRecommendBtn.classList.remove('hidden');
+                geminiRecommendBtn.classList.remove('hidden');
             }
 
-            function handleAIRecommendation() {
-                if (allResults.length === 0) return;
-                
-                // Simple "AI": shuffle and pick 5
-                const shuffled = [...allResults].sort(() => 0.5 - Math.random());
-                const recommended = shuffled.slice(0, 5);
+            // --- Gemini API Functions ---
+            async function handleGeminiRecommendation() {
+                if (allResults.length < 5) {
+                    showPopup("找到的店家太少，無法進行智能推薦。");
+                    return;
+                }
+                showLoading(true, "✨ Gemini 正在為您推薦...");
 
-                // Clear previous highlights
-                document.querySelectorAll('#results-list > div').forEach(el => {
-                    el.classList.remove('bg-green-100', 'border-green-400');
-                });
-                
-                resultsList.innerHTML = `<p class="text-center font-bold text-green-700 mb-2">✨ 為您推薦 5 間店 ✨</p>`;
-                
-                const recommendedIds = new Set(recommended.map(r => r.id));
+                const categorySelect = document.getElementById('category');
+                const categoryText = categorySelect.options[categorySelect.selectedIndex].text;
+                const storeNames = allResults.map(r => r.name).join(', ');
 
-                allResults.forEach((item, index) => {
-                    const listItem = document.createElement('div');
-                    listItem.className = 'p-3 bg-white rounded-lg shadow-sm cursor-pointer hover:bg-indigo-50 border';
-                    
-                    if (recommendedIds.has(item.id)) {
-                        listItem.classList.add('bg-green-100', 'border-green-400');
-                    } else {
-                        listItem.classList.add('border-gray-200');
+                const userQuery = `從這份店家清單中，推薦5間最值得去的店家，並為每一間提供一個簡短、吸引人的一句話推薦理由。店家類型是：'${categoryText}'。店家清單如下：${storeNames}`;
+                const systemPrompt = `你是一位友善的台灣在地美食導遊。請以繁體中文回答。你的回答必須是 JSON 格式的陣列，其中包含 5 個物件。每個物件都應有 "name" (店家名稱) 和 "reason" (推薦理由) 兩個鍵。店家名稱必須從提供的清單中選出。`;
+                const apiKey = "AIzaSyBzl00WUqXPYjPV6jMTHCyyDm5qM_aJzFQ";
+                const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
+
+                const payload = {
+                    systemInstruction: { parts: [{ text: systemPrompt }] },
+                    contents: [{ parts: [{ text: userQuery }] }],
+                    generationConfig: {
+                        responseMimeType: "application/json",
+                        responseSchema: {
+                            type: "ARRAY",
+                            items: {
+                                type: "OBJECT",
+                                properties: {
+                                    name: { type: "STRING" },
+                                    reason: { type: "STRING" }
+                                },
+                                required: ["name", "reason"]
+                            }
+                        }
+                    }
+                };
+
+                try {
+                    const response = await fetch(apiUrl, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+
+                    if (!response.ok) {
+                        throw new Error(`API 請求失敗，狀態碼：${response.status}`);
                     }
 
-                    listItem.innerHTML = `
-                        <div class="font-semibold text-gray-800">${index + 1}. ${item.name}</div>
-                        <button class="route-btn text-sm text-white bg-blue-500 hover:bg-blue-600 rounded-full px-3 py-1 mt-2">規劃步行路線</button>
-                    `;
-                    
-                    listItem.addEventListener('click', (e) => {
-                        if (e.target.classList.contains('route-btn')) return;
-                        map.setView([item.lat, item.lon], 18);
-                        resultMarkers.find(m => m.getLatLng().lat === item.lat && m.getLatLng().lng === item.lon)?.openPopup();
-                    });
-                     listItem.querySelector('.route-btn').addEventListener('click', () => {
-                        planRoute(item);
-                    });
-
-                    resultsList.appendChild(listItem);
-                });
+                    const result = await response.json();
+                    const text = result.candidates?.[0]?.content?.parts?.[0]?.text;
+                    if (text) {
+                        const recommendations = JSON.parse(text);
+                        displayGeminiResults(recommendations);
+                    } else {
+                        throw new Error("從 API 收到的回應無效。");
+                    }
+                } catch (error) {
+                    console.error("Gemini API Error:", error);
+                    showPopup("智能推薦失敗，請稍後再試。");
+                } finally {
+                    showLoading(false);
+                }
             }
+
+            function displayGeminiResults(recommendations) {
+                geminiResultsContainer.innerHTML = '';
+                recommendations.forEach(rec => {
+                    const originalStore = allResults.find(s => s.name === rec.name);
+                    if (!originalStore) return;
+
+                    const recItem = document.createElement('div');
+                    recItem.className = 'p-4 border rounded-lg bg-gray-50';
+                    recItem.innerHTML = `
+                        <h3 class="font-bold text-lg text-indigo-700">${rec.name}</h3>
+                        <p class="text-gray-600 my-2">“${rec.reason}”</p>
+                        <button class="gemini-route-btn text-sm text-white bg-blue-500 hover:bg-blue-600 rounded-full px-4 py-1.5">規劃步行路線</button>
+                    `;
+                    recItem.querySelector('.gemini-route-btn').addEventListener('click', () => {
+                        toggleGeminiModal(false);
+                        planRoute(originalStore);
+                    });
+                    geminiResultsContainer.appendChild(recItem);
+                });
+                toggleGeminiModal(true);
+            }
+
 
             // --- Routing Functions ---
             function planRoute(destination) {
@@ -470,38 +500,25 @@
                     showPopup("無法規劃路線，請先定位。");
                     return;
                 }
-                
-                clearMapFeatures(); // Clear markers and circle
+                clearMapFeatures();
 
                 const startPoint = userMarker.getLatLng();
                 const endPoint = L.latLng(destination.lat, destination.lon);
 
-                if (routingControl) {
-                    map.removeControl(routingControl);
-                }
+                if (routingControl) map.removeControl(routingControl);
 
                 routingControl = L.Routing.control({
                     waypoints: [startPoint, endPoint],
                     routeWhileDragging: true,
                     show: true,
-                    router: L.Routing.osrmv1({
-                        serviceUrl: `https://router.project-osrm.org/route/v1`,
-                        profile: 'foot' // Walking
-                    }),
-                    createMarker: function(i, waypoint, n) {
-                        const markerOptions = {
-                            draggable: i === 0, // only start point is draggable
-                        };
-                        const marker = L.marker(waypoint.latLng, markerOptions);
+                    router: L.Routing.osrmv1({ serviceUrl: `https://router.project-osrm.org/route/v1`, profile: 'foot' }),
+                    createMarker: function(i, wp) {
                         const label = i === 0 ? `<b>起點</b><br>你的位置` : `<b>終點</b><br>${destination.name}`;
-                        return marker.bindPopup(label);
+                        return L.marker(wp.latLng, { draggable: i === 0 }).bindPopup(label);
                     }
                 }).addTo(map);
                 
-                // On mobile, close sidebar to show the map
-                if (window.innerWidth < 768) {
-                    toggleSidebar();
-                }
+                if (window.innerWidth < 768) toggleSidebar();
             }
 
             // --- Event Listeners ---
@@ -509,12 +526,11 @@
             closeSidebarBtn.addEventListener('click', toggleSidebar);
             geolocateBtn.addEventListener('click', handleGeolocation);
             searchLocationInput.addEventListener('keypress', (e) => {
-                if (e.key === 'Enter') {
-                    handleSearchLocation(e.target.value);
-                }
+                if (e.key === 'Enter') handleSearchLocation(e.target.value);
             });
             searchBtn.addEventListener('click', executeSearch);
-            aiRecommendBtn.addEventListener('click', handleAIRecommendation);
+            geminiRecommendBtn.addEventListener('click', handleGeminiRecommendation);
+            closeGeminiModalBtn.addEventListener('click', () => toggleGeminiModal(false));
 
             // --- Initial Setup ---
             initMap();
@@ -522,3 +538,4 @@
     </script>
 </body>
 </html>
+
