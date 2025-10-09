@@ -32,35 +32,29 @@
             border-color: #4f46e5;
             font-weight: 600;
         }
-        #results-panel::-webkit-scrollbar { width: 6px; }
-        #results-panel::-webkit-scrollbar-track { background: #f8fafc; }
-        #results-panel::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px;}
-        #results-panel::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
-        /* Sidebar transition */
-        #sidebar {
-            transition: transform 0.3s ease-in-out;
-        }
+        .panel-scrollbar::-webkit-scrollbar { width: 6px; }
+        .panel-scrollbar::-webkit-scrollbar-track { background: #f8fafc; }
+        .panel-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px;}
+        .panel-scrollbar::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
     </style>
 </head>
 <body class="bg-gray-100 font-sans">
 
-<div class="relative h-screen w-screen bg-gray-50 md:flex">
+<div class="flex h-screen w-screen bg-gray-50">
 
-    <!-- Combined Sidebar for Mobile and Desktop -->
-    <div id="sidebar" class="absolute md:relative h-full w-full max-w-md md:w-auto md:max-w-none md:flex transform -translate-x-full md:translate-x-0 bg-white z-20">
-        <!-- Left Column: Search Controls -->
-        <div class="w-full md:w-auto md:max-w-xs flex flex-col border-r border-gray-200 p-4 space-y-6">
-            <header class="text-center">
-                <div class="flex justify-between items-center md:justify-center">
-                    <h1 class="text-2xl font-bold text-gray-800 text-center">地圖探險家</h1>
-                    <button id="close-sidebar-btn" class="p-2 md:hidden">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
-                    </button>
-                </div>
-                <p class="text-sm text-gray-500">您的智慧在地嚮導</p>
-                <p class="text-xs text-gray-400 mt-2">製作者: 黃建勳</p>
-            </header>
-
+    <!-- Search Controls Panel (Mobile: Overlay, Desktop: Static) -->
+    <div id="search-panel" class="absolute md:relative h-full w-4/5 max-w-sm bg-white z-30 transform -translate-x-full md:translate-x-0 md:w-1/4 md:max-w-xs transition-transform duration-300 ease-in-out border-r border-gray-200 flex flex-col">
+        <header class="p-4 text-center border-b border-gray-200">
+            <div class="relative flex justify-center items-center">
+                <h1 class="text-2xl font-bold text-gray-800">地圖探險家</h1>
+                <button id="close-search-btn" class="p-2 md:hidden absolute top-0 right-0 mt-1 mr-1">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                </button>
+            </div>
+            <p class="text-sm text-gray-500">您的智慧在地嚮導</p>
+            <p class="text-xs text-gray-400 mt-2">製作者: 黃建勳</p>
+        </header>
+        <div class="flex-1 overflow-y-auto p-4 space-y-6 panel-scrollbar">
             <!-- Location Settings -->
             <div class="space-y-3">
                 <h2 class="text-md font-semibold text-gray-700">1. 設定中心點</h2>
@@ -106,43 +100,57 @@
                 執行搜尋
             </button>
         </div>
+    </div>
 
-        <!-- Middle Column: Results -->
-        <div class="w-full md:w-auto md:max-w-sm bg-slate-50 flex flex-col border-r border-gray-200">
-            <div class="p-4 border-b border-gray-200 bg-white">
-                <div class="flex justify-between items-center">
-                     <h2 class="text-lg font-semibold text-gray-800">搜尋結果</h2>
-                     <button id="ai-decide-btn" disabled class="text-sm text-indigo-600 font-semibold hover:text-indigo-800 disabled:text-gray-400 disabled:cursor-not-allowed">✨ AI 幫我決定</button>
+    <!-- Results Panel (Mobile: Overlay, Desktop: Static) -->
+    <div id="results-container" class="absolute md:relative h-full w-4/5 max-w-sm bg-slate-50 z-20 transform -translate-x-full md:translate-x-0 md:w-1/3 md:max-w-sm transition-transform duration-300 ease-in-out border-r border-gray-200 flex flex-col">
+        <div class="p-4 border-b border-gray-200 bg-white">
+            <div class="relative flex justify-between items-center">
+                 <h2 class="text-lg font-semibold text-gray-800">搜尋結果</h2>
+                 <button id="ai-decide-btn" disabled class="text-sm text-indigo-600 font-semibold hover:text-indigo-800 disabled:text-gray-400 disabled:cursor-not-allowed">✨ AI 幫我決定</button>
+                 <button id="close-results-btn" class="p-2 md:hidden absolute top-0 right-0 -mt-1 -mr-1">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                </button>
+            </div>
+        </div>
+        <div id="results-panel" class="flex-1 p-4 overflow-y-auto panel-scrollbar">
+            <div id="ai-recommendation" class="mb-4 p-3 bg-white border border-gray-200 rounded-lg text-sm text-gray-500">
+                <div class="flex items-start">
+                    <svg class="w-6 h-6 text-gray-400 mr-3 flex-shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm2.12 15.88L12 17l-2.12 1.12a.5.5 0 0 1-.73-.55l.4-2.35-1.7-1.66a.5.5 0 0 1 .28-.85l2.36-.34.01-.01L12 9.5l1.06 2.14.01.01 2.36.34a.5.5 0 0 1 .28.85l-1.7 1.66.4 2.35a.5.5 0 0 1-.73.55z"/></svg>
+                    <p>執行搜尋後，AI 將在此為您推薦最棒的選擇！</p>
                 </div>
             </div>
-            <div id="results-panel" class="flex-1 p-4 overflow-y-auto">
-                <div id="ai-recommendation" class="mb-4 p-3 bg-white border border-gray-200 rounded-lg text-sm text-gray-500">
-                    <div class="flex items-start">
-                        <svg class="w-6 h-6 text-gray-400 mr-3 flex-shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm2.12 15.88L12 17l-2.12 1.12a.5.5 0 0 1-.73-.55l.4-2.35-1.7-1.66a.5.5 0 0 1 .28-.85l2.36-.34.01-.01L12 9.5l1.06 2.14.01.01 2.36.34a.5.5 0 0 1 .28.85l-1.7 1.66.4 2.35a.5.5 0 0 1-.73.55z"/></svg>
-                        <p>執行搜尋後，AI 將在此為您推薦最棒的選擇！</p>
-                    </div>
-                </div>
-                <div id="status" class="text-sm text-gray-500">請先設定中心點。</div>
-                <ul id="results-list" class="space-y-2"></ul>
-            </div>
+            <div id="status" class="text-sm text-gray-500">請先設定中心點。</div>
+            <ul id="results-list" class="space-y-2"></ul>
         </div>
     </div>
     
-    <!-- Right Column: Map -->
-    <div id="map" class="flex-1 h-full"></div>
+    <!-- Map Container -->
+    <div class="relative flex-1 h-full">
+        <div id="map" class="w-full h-full"></div>
+        <!-- Floating Buttons -->
+        <div class="md:hidden absolute top-4 left-4 z-10 flex flex-col space-y-2">
+            <button id="open-search-btn" class="p-3 bg-white rounded-full shadow-lg text-gray-700 hover:bg-gray-100">
+                <svg class="w-6 h-6" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M9 3.5a5.5 5.5 0 100 11 5.5 5.5 0 000-11zM2 9a7 7 0 1112.452 4.391l3.328 3.329a.75.75 0 11-1.06 1.06l-3.329-3.328A7 7 0 012 9z" clip-rule="evenodd" /></svg>
+            </button>
+            <button id="open-results-btn" class="p-3 bg-white rounded-full shadow-lg text-gray-700 hover:bg-gray-100">
+                <svg class="w-6 h-6" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M2 4.75A.75.75 0 012.75 4h14.5a.75.75 0 010 1.5H2.75A.75.75 0 012 4.75zM2 10a.75.75 0 01.75-.75h14.5a.75.75 0 010 1.5H2.75A.75.75 0 012 10zm0 5.25a.75.75 0 01.75-.75h14.5a.75.75 0 010 1.5H2.75a.75.75 0 01-.75-.75z" clip-rule="evenodd" /></svg>
+            </button>
+        </div>
+    </div>
 
-    <!-- Floating Menu Button for Mobile -->
-    <button id="menu-btn" class="md:hidden absolute top-4 left-4 z-10 p-3 bg-white rounded-full shadow-lg text-gray-700 hover:bg-gray-100">
-        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
-    </button>
 </div>
 
 <script>
     document.addEventListener('DOMContentLoaded', () => {
         // --- DOM Elements ---
-        const sidebar = document.getElementById('sidebar');
-        const menuBtn = document.getElementById('menu-btn');
-        const closeSidebarBtn = document.getElementById('close-sidebar-btn');
+        const searchPanel = document.getElementById('search-panel');
+        const resultsContainer = document.getElementById('results-container');
+        const openSearchBtn = document.getElementById('open-search-btn');
+        const openResultsBtn = document.getElementById('open-results-btn');
+        const closeSearchBtn = document.getElementById('close-search-btn');
+        const closeResultsBtn = document.getElementById('close-results-btn');
+
         const searchInput = document.getElementById('search-input');
         const searchAddressBtn = document.getElementById('search-address-btn');
         const locateMeBtn = document.getElementById('locate-me-btn');
@@ -315,9 +323,7 @@
                         const lat = place.lat || place.center.lat;
                         const lon = place.lon || place.center.lon;
                         const name = place.tags.name;
-                        const rating = place.tags.rating || '無';
-                        const ratingText = isNaN(parseFloat(rating)) ? rating : parseFloat(rating).toFixed(1);
-                        const marker = L.marker([lat, lon]).bindPopup(`<b>${name}</b><br>OSM 評分: ${ratingText}`);
+                        const marker = L.marker([lat, lon]).bindPopup(`<b>${name}</b><br>OSM 評分: ${place.tags.rating || '無'}`);
                         marker.addTo(poiLayer);
                         currentPlaces.push({ data: place, marker: marker });
                     });
@@ -366,7 +372,8 @@
                         marker.openPopup();
 
                         if (window.innerWidth < 768) {
-                            sidebar.classList.add('-translate-x-full');
+                           searchPanel.classList.add('-translate-x-full');
+                           resultsContainer.classList.add('-translate-x-full');
                         }
                     }
                 });
@@ -476,11 +483,21 @@
         aiDecideBtn.addEventListener('click', getAIFiveChoices);
         
         // Mobile sidebar toggle
-        menuBtn.addEventListener('click', () => sidebar.classList.remove('-translate-x-full'));
-        closeSidebarBtn.addEventListener('click', () => sidebar.classList.add('-translate-x-full'));
+        openSearchBtn.addEventListener('click', () => {
+            searchPanel.classList.remove('-translate-x-full');
+            resultsContainer.classList.add('-translate-x-full');
+        });
+        openResultsBtn.addEventListener('click', () => {
+            resultsContainer.classList.remove('-translate-x-full');
+            searchPanel.classList.add('-translate-x-full');
+        });
+        closeSearchBtn.addEventListener('click', () => searchPanel.classList.add('-translate-x-full'));
+        closeResultsBtn.addEventListener('click', () => resultsContainer.classList.add('-translate-x-full'));
+
         map.on('click', () => {
              if (window.innerWidth < 768) {
-                sidebar.classList.add('-translate-x-full');
+                searchPanel.classList.add('-translate-x-full');
+                resultsContainer.classList.add('-translate-x-full');
             }
         });
 
@@ -489,5 +506,4 @@
 
 </body>
 </html>
-
 
