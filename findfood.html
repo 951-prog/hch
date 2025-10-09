@@ -30,67 +30,85 @@
         .panel-scrollbar::-webkit-scrollbar { width: 6px; }
         .panel-scrollbar::-webkit-scrollbar-track { background: #f8fafc; }
         .panel-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px;}
-        #bottom-sheet { touch-action: none; transition: transform 0.3s ease-out; }
-        .leaflet-bottom.leaflet-left { bottom: 100px; } /* Adjust zoom control position on mobile */
-        @media (min-width: 768px) {
-            .leaflet-bottom.leaflet-left { bottom: 1rem; }
-        }
+        .panel-scrollbar::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+        .mobile-panel { transition: transform 0.3s ease-in-out; }
     </style>
 </head>
 <body class="bg-gray-100 font-sans antialiased">
 
-<div id="app-container" class="relative h-screen w-screen">
+<div class="relative h-screen w-screen bg-gray-50 md:flex">
+
+    <!-- DESKTOP: Search Controls Panel -->
+    <div class="hidden md:flex md:w-1/4 md:max-w-xs bg-white flex-col z-10 border-r border-gray-200 p-4 space-y-6">
+        <header class="text-center">
+            <h1 class="text-2xl font-bold text-gray-800">地圖探險家</h1>
+            <p class="text-sm text-gray-500">您的智慧在地嚮導</p>
+            <p class="text-xs text-gray-400 mt-2">製作者: 黃建勳</p>
+        </header>
+        <div id="desktop-search-controls" class="flex-1 space-y-6 overflow-y-auto panel-scrollbar pr-2"></div>
+    </div>
+
+    <!-- DESKTOP: Results Panel -->
+    <div class="hidden md:flex md:w-1/3 md:max-w-sm bg-slate-50 flex-col z-10 border-r border-gray-200">
+         <div class="p-4 border-b border-gray-200 bg-white">
+            <div id="desktop-results-header" class="flex justify-between items-center opacity-0 transition-opacity duration-300">
+                <h2 class="text-lg font-semibold text-gray-800">搜尋結果</h2>
+                <button id="ai-decide-btn-desktop" class="text-sm text-indigo-600 font-semibold hover:text-indigo-800">✨ AI 幫我決定</button>
+            </div>
+        </div>
+        <div id="desktop-results-panel" class="flex-1 p-4 overflow-y-auto panel-scrollbar"></div>
+    </div>
     
     <!-- Map Container -->
-    <div id="map" class="w-full h-full z-0"></div>
+    <div id="map-container" class="relative flex-1 h-full">
+        <div id="map" class="w-full h-full z-0"></div>
+    </div>
 
-    <!-- Desktop Layout -->
-    <div class="hidden md:flex absolute top-0 left-0 h-full w-full pointer-events-none">
-        <div class="w-1/4 max-w-xs bg-white h-full pointer-events-auto border-r border-gray-200 flex flex-col p-4 space-y-6">
-            <header class="text-center">
-                <h1 class="text-2xl font-bold text-gray-800">地圖探險家</h1>
-                <p class="text-sm text-gray-500">您的智慧在地嚮導</p>
-                <p class="text-xs text-gray-400 mt-2">製作者: 黃建勳</p>
+    <!-- MOBILE: Overlay Panels -->
+    <div id="mobile-overlay-container" class="md:hidden">
+        <!-- Search Panel -->
+        <div id="mobile-search-panel" class="mobile-panel absolute top-0 left-0 h-full w-4/5 max-w-sm bg-white z-30 transform -translate-x-full shadow-lg flex flex-col">
+            <header class="p-4 text-center border-b border-gray-200 flex-shrink-0">
+                <div class="relative flex justify-center items-center">
+                    <h1 class="text-2xl font-bold text-gray-800">搜尋設定</h1>
+                    <button id="close-search-panel-btn" class="p-2 absolute top-0 right-0 mt-2 mr-2">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path fill="currentColor" d="M6.4 19L5 17.6l5.6-5.6L5 6.4L6.4 5l5.6 5.6L17.6 5L19 6.4L13.4 12l5.6 5.6l-1.4 1.4l-5.6-5.6z"/></svg>
+                    </button>
+                </div>
             </header>
-            <div id="desktop-search-controls" class="flex-1 space-y-6 overflow-y-auto panel-scrollbar pr-2"></div>
+            <div id="mobile-search-controls" class="flex-1 overflow-y-auto p-4 space-y-6 panel-scrollbar"></div>
         </div>
-        <div class="w-1/3 max-w-sm bg-slate-50 h-full pointer-events-auto border-r border-gray-200 flex flex-col">
-            <div id="desktop-results-header" class="p-4 border-b border-gray-200 bg-white opacity-0 transition-opacity duration-300">
-                <div class="flex justify-between items-center">
-                    <h2 class="text-lg font-semibold text-gray-800">搜尋結果</h2>
-                    <button id="ai-decide-btn-desktop" class="text-sm text-indigo-600 font-semibold hover:text-indigo-800">✨ AI 幫我決定</button>
+        <!-- Results Panel -->
+        <div id="mobile-results-panel-container" class="mobile-panel absolute top-0 left-0 h-full w-4/5 max-w-sm bg-slate-50 z-20 transform -translate-x-full shadow-lg flex flex-col">
+            <div class="p-4 border-b border-gray-200 bg-white flex-shrink-0">
+                <div class="relative flex justify-between items-center">
+                     <h2 class="text-lg font-semibold text-gray-800">搜尋結果</h2>
+                     <button id="ai-decide-btn-mobile" class="text-sm text-indigo-600 font-semibold">✨ AI 幫我決定</button>
+                     <button id="close-results-panel-btn" class="p-2 absolute top-0 right-0 -mt-2 -mr-2">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path fill="currentColor" d="M6.4 19L5 17.6l5.6-5.6L5 6.4L6.4 5l5.6 5.6L17.6 5L19 6.4L13.4 12l5.6 5.6l-1.4 1.4l-5.6-5.6z"/></svg>
+                    </button>
                 </div>
             </div>
-            <div id="desktop-results-panel" class="flex-1 p-4 overflow-y-auto panel-scrollbar"></div>
+            <div id="mobile-results-panel" class="flex-1 p-4 overflow-y-auto panel-scrollbar"></div>
         </div>
     </div>
-
-    <!-- Mobile Bottom Sheet -->
-    <div id="bottom-sheet" class="md:hidden absolute bottom-0 left-0 w-full h-[calc(100%-60px)] bg-white z-20 rounded-t-2xl shadow-2xl flex flex-col transform translate-y-[calc(100%-88px)]">
-        <div id="sheet-grabber" class="w-full py-4 flex justify-center items-center cursor-grab active:cursor-grabbing flex-shrink-0">
-            <div class="w-12 h-1.5 bg-gray-300 rounded-full"></div>
-        </div>
-        <div class="px-4 pb-2 border-b border-gray-200 flex-shrink-0">
-             <div id="results-header-mobile" class="hidden justify-between items-center">
-                <button id="back-to-search-btn-mobile" class="text-sm font-semibold text-gray-600 hover:text-gray-800 flex items-center p-2 -ml-2">
-                    <svg class="w-5 h-5 mr-1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M12.79 5.23a.75.75 0 01-.02 1.06L8.832 10l3.938 3.71a.75.75 0 11-1.04 1.08l-4.5-4.25a.75.75 0 010-1.08l4.5-4.25a.75.75 0 011.06.02z" clip-rule="evenodd" /></svg>
-                    修改搜尋
-                </button>
-                <button id="ai-decide-btn-mobile" class="text-sm text-indigo-600 font-semibold hover:text-indigo-800">✨ AI 幫我決定</button>
-            </div>
-        </div>
-        <div id="sheet-content" class="flex-1 overflow-y-auto panel-scrollbar">
-            <div id="mobile-search-controls" class="p-4 space-y-6"></div>
-            <div id="mobile-results-panel" class="hidden p-4"></div>
-        </div>
-    </div>
-
-    <!-- Mobile Floating Locate Button -->
-    <div class="md:hidden absolute bottom-28 right-4 z-10">
-        <button id="locate-me-btn-mobile" class="w-14 h-14 flex items-center justify-center bg-white rounded-full shadow-lg text-gray-700 hover:bg-gray-100 active:bg-gray-200">
-            <svg class="w-7 h-7" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M12 8c-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4-1.79-4-4-4zm8.94 3c-.46-4.17-3.77-7.48-7.94-7.94V1h-2v2.06C6.83 3.52 3.52 6.83 3.06 11H1v2h2.06c.46 4.17 3.77 7.48 7.94 7.94V23h2v-2.06c4.17-.46 7.48-3.77 7.94-7.94H23v-2h-2.06zM12 19c-3.87 0-7-3.13-7-7s3.13-7 7-7 7 3.13 7 7-3.13 7-7 7z"/></svg>
+    
+    <!-- MOBILE: Floating Action Buttons -->
+    <div class="md:hidden absolute top-4 left-4 z-10 flex flex-col space-y-2">
+        <button id="open-search-panel-btn" class="w-14 h-14 flex items-center justify-center bg-white rounded-full shadow-lg text-gray-700 hover:bg-gray-100 active:bg-gray-200">
+             <svg class="w-7 h-7" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5A6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zM9.5 14C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5S14 7.01 14 9.5S11.99 14 9.5 14"/></svg>
+        </button>
+        <button id="open-results-panel-btn" class="w-14 h-14 flex items-center justify-center bg-white rounded-full shadow-lg text-gray-700 hover:bg-gray-100 active:bg-gray-200">
+            <svg class="w-7 h-7" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M3 18h18v-2H3zm0-5h18v-2H3zm0-5h18V6H3z"/></svg>
         </button>
     </div>
+    <div class="md:hidden absolute bottom-4 right-4 z-10">
+        <button id="locate-me-btn-mobile" class="w-14 h-14 flex items-center justify-center bg-white rounded-full shadow-lg text-gray-700 hover:bg-gray-100 active:bg-gray-200">
+            <svg id="locate-icon" class="w-7 h-7" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M12 8c-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4-1.79-4-4-4zm8.94 3c-.46-4.17-3.77-7.48-7.94-7.94V1h-2v2.06C6.83 3.52 3.52 6.83 3.06 11H1v2h2.06c.46 4.17 3.77 7.48 7.94 7.94V23h2v-2.06c4.17-.46 7.48-3.77 7.94-7.94H23v-2h-2.06zM12 19c-3.87 0-7-3.13-7-7s3.13-7 7-7 7 3.13 7 7-3.13 7-7 7z"/></svg>
+            <svg id="locate-spinner" class="w-7 h-7 animate-spin hidden" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+        </button>
+    </div>
+
 </div>
 
 <!-- Reusable Content Templates -->
@@ -148,21 +166,14 @@
 
 <script>
     document.addEventListener('DOMContentLoaded', () => {
-        // --- TEMPLATE CLONING ---
         const searchControlsTemplate = document.getElementById('search-controls-template');
         const resultsContentTemplate = document.getElementById('results-content-template');
         
-        const desktopSearchControls = document.getElementById('desktop-search-controls');
-        const mobileSearchControls = document.getElementById('mobile-search-controls');
-        const desktopResultsPanel = document.getElementById('desktop-results-panel');
-        const mobileResultsPanel = document.getElementById('mobile-results-panel');
-
-        desktopSearchControls.appendChild(searchControlsTemplate.content.cloneNode(true));
-        mobileSearchControls.appendChild(searchControlsTemplate.content.cloneNode(true));
-        desktopResultsPanel.appendChild(resultsContentTemplate.content.cloneNode(true));
-        mobileResultsPanel.appendChild(resultsContentTemplate.content.cloneNode(true));
+        document.getElementById('desktop-search-controls').appendChild(searchControlsTemplate.content.cloneNode(true));
+        document.getElementById('mobile-search-controls').appendChild(searchControlsTemplate.content.cloneNode(true));
+        document.getElementById('desktop-results-panel').appendChild(resultsContentTemplate.content.cloneNode(true));
+        document.getElementById('mobile-results-panel').appendChild(resultsContentTemplate.content.cloneNode(true));
         
-        // --- DOM Elements ---
         const searchInputs = document.querySelectorAll('.search-input');
         const searchAddressBtns = document.querySelectorAll('.search-address-btn');
         const locateMeBtns = document.querySelectorAll('.locate-me-btn');
@@ -172,7 +183,6 @@
         const resultsLists = document.querySelectorAll('.results-list');
         const aiRecommendationBoxes = document.querySelectorAll('.ai-recommendation');
         
-        // --- App State ---
         let currentSearchCoords = null;
         let currentPlaces = [];
         let isAiMode = false;
@@ -180,198 +190,122 @@
         let poiLayer = L.layerGroup();
         let radiusCircle = null;
         
-        const categoryQueries = {
-            food: '[amenity~"restaurant|fast_food|food_court"]',
-            cafe: '[amenity="cafe"]',
-            drinks: '[shop~"beverages|tea"]'
-        };
+        const categoryQueries = { food: '[amenity~"restaurant|fast_food|food_court"]', cafe: '[amenity="cafe"]', drinks: '[shop~"beverages|tea"]' };
 
-        // --- MAP SETUP ---
         const map = L.map('map', { zoomControl: false }).setView([25.0478, 121.5319], 13);
         L.control.zoom({ position: 'bottomleft' }).addTo(map);
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            maxZoom: 19,
-            attribution: '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-        }).addTo(map);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '&copy; OpenStreetMap' }).addTo(map);
         searchLayer.addTo(map);
         poiLayer.addTo(map);
 
         const routingControl = L.Routing.control({
-            waypoints: [],
-            routeWhileDragging: false,
-            router: L.Routing.osrmv1({
-                serviceUrl: `https://router.project-osrm.org/route/v1`,
-                profile: 'foot'
-            }),
+            waypoints: [], routeWhileDragging: false,
+            router: L.Routing.osrmv1({ serviceUrl: `https://router.project-osrm.org/route/v1`, profile: 'foot' }),
             lineOptions: { styles: [{color: '#0ea5e9', opacity: 0.8, weight: 6, dashArray: '5, 10'}] },
-            geocoder: L.Control.Geocoder.nominatim(),
-            show: false,
-            collapsible: true,
-            createMarker: function() { return null; }
+            geocoder: L.Control.Geocoder.nominatim(), show: false, collapsible: true, createMarker: () => null
         }).addTo(map);
         
-        // --- UI FUNCTIONS ---
-        const updateUI = (updater) => {
-            updater(desktopResultsPanel.parentElement, document.getElementById('results-header-desktop'));
-            updater(mobileResultsPanel, document.getElementById('results-header-mobile'));
-        };
-
-        function showSearchView() {
-            mobileSearchControls.style.display = 'block';
-            mobileResultsPanel.style.display = 'none';
-            document.getElementById('results-header-mobile').classList.add('hidden');
-        }
-
-        function showResultsView() {
-            mobileSearchControls.style.display = 'none';
-            mobileResultsPanel.style.display = 'block';
-            document.getElementById('results-header-mobile').classList.remove('hidden');
-            setSheetState('half');
-        }
+        const resetAIBox = () => aiRecommendationBoxes.forEach(box => {
+            box.className = 'ai-recommendation mb-4 p-3 bg-white border border-gray-200 rounded-lg text-sm text-gray-500';
+            box.innerHTML = `<div class="flex items-start"><svg class="w-6 h-6 text-gray-400 mr-3 flex-shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm2.12 15.88L12 17l-2.12 1.12a.5.5 0 0 1-.73-.55l.4-2.35-1.7-1.66a.5.5 0 0 1 .28-.85l2.36-.34.01-.01L12 9.5l1.06 2.14.01.01 2.36.34a.5.5 0 0 1 .28.85l-1.7 1.66.4 2.35a.5.5 0 0 1-.73.55z"/></svg><p>執行搜尋後，AI 將在此為您推薦最棒的選擇！</p></div>`;
+        });
+        const setLoadingState = (text) => statuses.forEach(s => s.innerHTML = `<div class="flex items-center text-sm text-gray-500"><svg class="animate-spin -ml-1 mr-3 h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>${text}</div>`);
+        const setStatus = (text) => statuses.forEach(s => s.textContent = text);
         
-        // --- CORE FUNCTIONS ---
-        function resetAIBox() {
-            aiRecommendationBoxes.forEach(box => {
-                box.className = 'ai-recommendation mb-4 p-3 bg-white border border-gray-200 rounded-lg text-sm text-gray-500';
-                box.innerHTML = `<div class="flex items-start">
-                    <svg class="w-6 h-6 text-gray-400 mr-3 flex-shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm2.12 15.88L12 17l-2.12 1.12a.5.5 0 0 1-.73-.55l.4-2.35-1.7-1.66a.5.5 0 0 1 .28-.85l2.36-.34.01-.01L12 9.5l1.06 2.14.01.01 2.36.34a.5.5 0 0 1 .28.85l-1.7 1.66.4 2.35a.5.5 0 0 1-.73.55z"/></svg>
-                    <p>執行搜尋後，AI 將在此為您推薦最棒的選擇！</p>
-                </div>`;
-            });
-        }
-
         function clearAllLayers(clearRoute = true) {
-            searchLayer.clearLayers();
-            poiLayer.clearLayers();
-            resultsLists.forEach(list => list.innerHTML = '');
-            resetAIBox();
-            currentPlaces = [];
-            isAiMode = false;
+            searchLayer.clearLayers(); poiLayer.clearLayers();
+            resultsLists.forEach(l => l.innerHTML = '');
+            resetAIBox(); currentPlaces = []; isAiMode = false;
             document.getElementById('ai-decide-btn-desktop').disabled = true;
             document.getElementById('ai-decide-btn-mobile').disabled = true;
-            document.getElementById('results-header-desktop').classList.add('opacity-0');
-
-
+            document.getElementById('desktop-results-header').classList.add('opacity-0');
             if (radiusCircle) map.removeLayer(radiusCircle);
-            if (clearRoute) {
-               routingControl.setWaypoints([]);
-               routingControl.hide();
-            }
-        }
-        
-        function setLoadingState(text) {
-            statuses.forEach(status => {
-                status.innerHTML = `<div class="flex items-center text-sm text-gray-500"><svg class="animate-spin -ml-1 mr-3 h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>${text}</div>`;
-            });
-        }
-        
-        function setStatus(text) {
-             statuses.forEach(status => { status.textContent = text; });
+            if (clearRoute) { routingControl.setWaypoints([]); routingControl.hide(); }
         }
 
         function setCenterLocation(lat, lon, displayName) {
-            clearAllLayers();
-            currentSearchCoords = { lat, lon };
+            clearAllLayers(); currentSearchCoords = { lat, lon };
             map.flyTo([lat, lon], 16);
-
             L.marker([lat, lon], { draggable: true })
-                .on('dragend', (event) => setCenterLocation(event.target.getLatLng().lat, event.target.getLatLng().lng, "自訂位置"))
+                .on('dragend', (e) => setCenterLocation(e.target.getLatLng().lat, e.target.getLatLng().lng, "自訂位置"))
                 .addTo(searchLayer).bindPopup(`<b>${displayName}</b><br><small>可拖動此圖釘微調</small>`).openPopup();
-            
             setStatus(`中心點已設定：${displayName}`);
             performSearchBtns.forEach(btn => btn.disabled = false);
+            searchInputs.forEach(input => { if (displayName !== "自訂位置") input.value = displayName; });
         }
 
         async function searchAddress() {
-            const query = document.querySelector('.search-input:not([style*="display: none"])')?.value || searchInputs[0].value;
-            if (!query) {
-                setStatus('請輸入要搜尋的關鍵字。');
-                return;
-            }
+            const query = Array.from(searchInputs).find(i => i.offsetParent !== null)?.value || searchInputs[0].value;
+            if (!query) { setStatus('請輸入關鍵字'); return; }
             setLoadingState('正在搜尋地址...');
-            
             try {
                 const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&accept-language=zh-tw`);
                 const data = await response.json();
-                if (data && data.length > 0) {
-                    setCenterLocation(parseFloat(data[0].lat), parseFloat(data[0].lon), data[0].display_name);
-                } else {
-                    setStatus('找不到符合的地點。');
-                }
-            } catch (error) {
-                console.error('搜尋地址時發生錯誤:', error);
-                setStatus('搜尋時發生錯誤。');
-            }
+                if (data && data.length > 0) setCenterLocation(parseFloat(data[0].lat), parseFloat(data[0].lon), data[0].display_name);
+                else setStatus('找不到符合的地點');
+            } catch (error) { console.error('搜尋錯誤:', error); setStatus('搜尋時發生錯誤'); }
         }
 
         function locateUser() {
-            if (!navigator.geolocation) {
-                setStatus("您的瀏覽器不支援定位功能。");
-                return;
-            }
-            setLoadingState('正在取得您的位置...');
+            if (!navigator.geolocation) { setStatus("瀏覽器不支援定位"); return; }
+            const locateIcon = document.getElementById('locate-icon');
+            const locateSpinner = document.getElementById('locate-spinner');
+            const showSpinner = () => { if(locateIcon) { locateIcon.classList.add('hidden'); locateSpinner.classList.remove('hidden'); } else { setLoadingState('正在取得您的位置...'); }};
+            const hideSpinner = () => { if(locateIcon) { locateIcon.classList.remove('hidden'); locateSpinner.classList.add('hidden'); }};
+
+            showSpinner();
             navigator.geolocation.getCurrentPosition(
-                (position) => setCenterLocation(position.coords.latitude, position.coords.longitude, "我的目前位置"),
-                () => setStatus("無法取得位置，請確認定位權限已開啟。")
+                (pos) => {
+                    hideSpinner();
+                    setCenterLocation(pos.coords.latitude, pos.coords.longitude, "我的目前位置");
+                    if (window.innerWidth < 768) {
+                        document.getElementById('mobile-search-panel').classList.remove('-translate-x-full');
+                        document.getElementById('mobile-results-panel-container').classList.add('-translate-x-full');
+                    }
+                },
+                () => { hideSpinner(); setStatus("無法取得位置，請確認定位權限"); },
+                { enableHighAccuracy: true, timeout: 8000, maximumAge: 0 }
             );
         }
 
         async function performSearch() {
-            if (!currentSearchCoords) {
-                setStatus('請先設定一個中心點。');
-                return;
-            }
+            if (!currentSearchCoords) { setStatus('請先設定中心點'); return; }
             setLoadingState('正在搜尋...');
-            showResultsView();
-            isAiMode = false;
-            poiLayer.clearLayers();
-            currentPlaces = [];
-            resultsLists.forEach(list => list.innerHTML = '');
-            routingControl.setWaypoints([]);
-            routingControl.hide();
-
+            if(window.innerWidth < 768) showResultsView();
+            isAiMode = false; poiLayer.clearLayers(); currentPlaces = [];
+            resultsLists.forEach(l => l.innerHTML = '');
+            routingControl.setWaypoints([]); routingControl.hide();
             if (radiusCircle) map.removeLayer(radiusCircle);
-            const selectedRadius = document.querySelector('input[name="radius"]:checked').value;
-            radiusCircle = L.circle([currentSearchCoords.lat, currentSearchCoords.lon], {
-                radius: parseInt(selectedRadius), color: '#4f46e5', fillColor: '#4f46e5', fillOpacity: 0.15, weight: 1.5
-            }).addTo(map);
 
-            const selectedCategoryValue = document.querySelector('input[name="category"]:checked').value;
-            const overpassCategory = categoryQueries[selectedCategoryValue];
-            const overpassQuery = `[out:json][timeout:25];(node${overpassCategory}(around:${selectedRadius},${currentSearchCoords.lat},${currentSearchCoords.lon});way${overpassCategory}(around:${selectedRadius},${currentSearchCoords.lat},${currentSearchCoords.lon}););out center;`;
+            const radius = document.querySelector('input[name="radius"]:checked').value;
+            radiusCircle = L.circle([currentSearchCoords.lat, currentSearchCoords.lon], { radius: parseInt(radius), color: '#4f46e5', fillColor: '#4f46e5', fillOpacity: 0.15, weight: 1.5 }).addTo(map);
+            const category = categoryQueries[document.querySelector('input[name="category"]:checked').value];
+            const overpassQuery = `[out:json][timeout:25];(node${category}(around:${radius},${currentSearchCoords.lat},${currentSearchCoords.lon});way${category}(around:${radius},${currentSearchCoords.lat},${currentSearchCoords.lon}););out center;`;
             
             try {
                 const response = await fetch(`https://overpass-api.de/api/interpreter?data=${encodeURIComponent(overpassQuery)}`);
                 const data = await response.json();
-                let placesData = data.elements.filter(el => el.tags && el.tags.name);
-                placesData.sort((a, b) => (parseFloat(b.tags.rating) || 0) - (parseFloat(a.tags.rating) || 0));
+                let placesData = data.elements.filter(el => el.tags && el.tags.name).sort((a, b) => (parseFloat(b.tags.rating) || 0) - (parseFloat(a.tags.rating) || 0));
                 
-                document.getElementById('results-header-desktop').classList.remove('opacity-0');
-
+                document.getElementById('desktop-results-header').classList.remove('opacity-0');
                 if (placesData.length > 0) {
                     placesData.forEach(place => {
-                        const marker = L.marker([place.lat || place.center.lat, place.lon || place.center.lon])
-                            .bindPopup(`<b>${place.tags.name}</b><br>OSM 評分: ${place.tags.rating || '無'}`);
+                        const marker = L.marker([place.lat || place.center.lat, place.lon || place.center.lon]).bindPopup(`<b>${place.tags.name}</b><br>OSM 評分: ${place.tags.rating || '無'}`);
                         marker.addTo(poiLayer);
                         currentPlaces.push({ data: place, marker: marker });
                     });
-                    
                     document.getElementById('ai-decide-btn-desktop').disabled = false;
                     document.getElementById('ai-decide-btn-mobile').disabled = false;
-                    setStatus(`找到 ${placesData.length} 個結果，點擊可規劃路徑。`);
+                    setStatus(`找到 ${placesData.length} 個結果`);
                     renderResults(currentPlaces);
                     getAIRecommendation(currentPlaces, document.querySelector('input[name="category"]:checked + label').textContent);
                 } else {
                     document.getElementById('ai-decide-btn-desktop').disabled = true;
                     document.getElementById('ai-decide-btn-mobile').disabled = true;
-                    setStatus(`在指定範圍內找不到符合的店家。`);
+                    setStatus('找不到符合的店家');
                     resetAIBox();
                 }
-            } catch (error) {
-                console.error('執行搜尋時發生錯誤:', error);
-                setStatus('搜尋時發生錯誤，請稍後再試。');
-                resetAIBox();
-            }
+            } catch (error) { console.error('執行搜尋時發生錯誤:', error); setStatus('搜尋時發生錯誤'); resetAIBox(); }
         }
         
         function renderResults(placesWithMarkers) {
@@ -382,22 +316,18 @@
                     const { lat, lon } = placeData.lat ? placeData : placeData.center;
                     const name = placeData.tags.name;
                     const ratingText = isNaN(parseFloat(placeData.tags.rating)) ? '無' : parseFloat(placeData.tags.rating).toFixed(1);
-                    
                     const li = document.createElement('li');
                     li.className = 'p-3 rounded-md hover:bg-slate-100 cursor-pointer border border-gray-200 transition-all';
                     li.innerHTML = `<div class="flex justify-between items-center"><p class="font-semibold text-gray-800 truncate pr-2">${name}</p><div class="flex items-center flex-shrink-0"><svg class="w-4 h-4 text-yellow-400 mr-1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" /></svg><span class="font-bold text-gray-700 text-sm">${ratingText}</span></div></div>`;
-                    
                     li.addEventListener('click', () => {
                         if (currentSearchCoords) {
-                            if (isAiMode) {
-                                poiLayer.clearLayers();
-                                marker.addTo(poiLayer);
-                            }
+                            if (isAiMode) { poiLayer.clearLayers(); marker.addTo(poiLayer); }
                             routingControl.setWaypoints([L.latLng(currentSearchCoords.lat, currentSearchCoords.lon), L.latLng(lat, lon)]);
-                            routingControl.show();
-                            map.flyTo([lat, lon], 17);
-                            marker.openPopup();
-                            if (window.innerWidth < 768) setSheetState('closed');
+                            routingControl.show(); map.flyTo([lat, lon], 17); marker.openPopup();
+                            if (window.innerWidth < 768) {
+                                document.getElementById('mobile-search-panel').classList.add('-translate-x-full');
+                                document.getElementById('mobile-results-panel-container').classList.add('-translate-x-full');
+                            }
                         }
                     });
                     list.appendChild(li);
@@ -407,8 +337,7 @@
         
         async function callGeminiAPI(systemPrompt, userPrompt, expectJson = false) {
             const apiKey = "AIzaSyBzl00WUqXPYjPV6jMTHCyyDm5qM_aJzFQ"; // <--- 在這裡貼上您的 API 金鑰
-            if (!apiKey) throw new Error("API 金鑰未設定。");
-            
+            if (!apiKey) throw new Error("API 金鑰未設定");
             const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
             const payload = { contents: [{ parts: [{ text: userPrompt }] }], systemInstruction: { parts: [{ text: systemPrompt }] } };
             if (expectJson) {
@@ -424,59 +353,39 @@
             return result.candidates?.[0]?.content?.parts?.[0]?.text;
         }
 
-        async function getAIRecommendation(placesWithMarkers, category) {
-            aiRecommendationBoxes.forEach(box => {
-                setLoadingState(box, 'AI 正在為您推薦...');
-                box.className = 'ai-recommendation mb-4 p-3 bg-indigo-50 border border-indigo-200 rounded-lg';
-            });
-            const topPlaces = placesWithMarkers.slice(0, 5).map(p => `- ${p.data.tags.name} (評分: ${p.data.tags.rating || '無'})`).join('\n');
-            const systemPrompt = "你是台灣在地的美食嚮導。任務是根據店家列表，用熱情友善的語氣，推薦一家最棒的店。回覆必須是繁體中文，且非常簡潔。先說一句吸引人的開場白，點名店家，最後用一句話說明推薦原因。絕不使用 Markdown。";
+        async function getAIRecommendation(places, category) {
+            aiRecommendationBoxes.forEach(box => { setLoadingState(box, 'AI 正在為您推薦...'); box.className = 'ai-recommendation mb-4 p-3 bg-indigo-50 border border-indigo-200 rounded-lg'; });
+            const topPlaces = places.slice(0, 5).map(p => `- ${p.data.tags.name} (評分: ${p.data.tags.rating || '無'})`).join('\n');
+            const systemPrompt = "你是台灣在地嚮導。任務是根據店家列表，用熱情友善的語氣推薦一家最棒的店。回覆必須是繁體中文，且非常簡潔。先說一句吸引人的開場白，點名店家，最後用一句話說明推薦原因。絕不使用 Markdown。";
             const userPrompt = `使用者正在尋找「${category}」，附近的店家有：\n${topPlaces}\n\n請只推薦一家店並說明原因。`;
             try {
                 const recommendationText = await callGeminiAPI(systemPrompt, userPrompt);
-                if (recommendationText) {
-                    aiRecommendationBoxes.forEach(box => {
-                        box.innerHTML = `<div class="flex items-start"><svg class="w-6 h-6 text-indigo-500 mr-3 flex-shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm2.12 15.88L12 17l-2.12 1.12a.5.5 0 0 1-.73-.55l.4-2.35-1.7-1.66a.5.5 0 0 1 .28-.85l2.36-.34.01-.01L12 9.5l1.06 2.14.01.01 2.36.34a.5.5 0 0 1 .28.85l-1.7 1.66.4 2.35a.5.5 0 0 1-.73.55z"/></svg><p class="text-sm text-indigo-800">${recommendationText.trim()}</p></div>`;
-                    });
-                } else { resetAIBox(); }
-            } catch (error) {
-                console.error("AI recommendation error:", error);
-                aiRecommendationBoxes.forEach(box => {
-                     box.innerHTML = `<p class="text-sm text-red-600"><strong>AI 推薦失敗：</strong> ${error.message}</p>`;
-                });
-            }
+                if (recommendationText) aiRecommendationBoxes.forEach(box => box.innerHTML = `<div class="flex items-start"><svg class="w-6 h-6 text-indigo-500 mr-3 flex-shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm2.12 15.88L12 17l-2.12 1.12a.5.5 0 0 1-.73-.55l.4-2.35-1.7-1.66a.5.5 0 0 1 .28-.85l2.36-.34.01-.01L12 9.5l1.06 2.14.01.01 2.36.34a.5.5 0 0 1 .28.85l-1.7 1.66.4 2.35a.5.5 0 0 1-.73.55z"/></svg><p class="text-sm text-indigo-800">${recommendationText.trim()}</p></div>`);
+                else resetAIBox();
+            } catch (error) { console.error("AI 推薦錯誤:", error); aiRecommendationBoxes.forEach(box => box.innerHTML = `<p class="text-sm text-red-600"><strong>AI 推薦失敗：</strong> ${error.message}</p>`); }
         }
 
         async function getAIFiveChoices() {
             if (!currentPlaces || currentPlaces.length === 0) return;
             isAiMode = true;
-             aiRecommendationBoxes.forEach(box => {
-                setLoadingState(box, 'AI 正在為您挑選五家口袋名單...');
-                box.className = 'ai-recommendation mb-4 p-3 bg-indigo-50 border border-indigo-200 rounded-lg';
-            });
-
+            aiRecommendationBoxes.forEach(box => { setLoadingState(box, 'AI 正在為您挑選五家口袋名單...'); box.className = 'ai-recommendation mb-4 p-3 bg-indigo-50 border border-indigo-200 rounded-lg'; });
             const topPlaces = currentPlaces.slice(0, 10).map(p => `- ${p.data.tags.name} (評分: ${p.data.tags.rating || '無'})`).join('\n');
             const category = document.querySelector('input[name="category"]:checked + label').textContent;
-            const systemPrompt = "你是台灣在地的嚮導。任務是從一份店家列表中，挑選出 5 家各有特色的店推薦給使用者。每一家都要有不同的推薦理由。你的回覆必須是一個包含 5 個物件的 JSON 陣列。每個物件應包含 'name' (店家名稱字串) 和 'reason' (一句推薦理由字串) 兩個鍵。";
+            const systemPrompt = "你是台灣在地嚮導。任務是從一份店家列表中，挑選出 5 家各有特色的店推薦給使用者。回覆必須是一個包含 5 個物件的 JSON 陣列。每個物件應包含 'name' (店家名稱字串) 和 'reason' (一句推薦理由字串) 兩個鍵。";
             const userPrompt = `使用者正在尋找「${category}」，請從以下店家列表中，挑選5家並以JSON格式回傳：\n${topPlaces}`;
 
             try {
                 const jsonString = await callGeminiAPI(systemPrompt, userPrompt, true);
                 const recommendations = JSON.parse(jsonString);
-
                 if (recommendations && recommendations.length > 0) {
                     const recommendedNames = recommendations.map(r => r.name);
                     const filteredPlaces = currentPlaces.filter(p => recommendedNames.includes(p.data.tags.name));
-                    
                     renderResults(filteredPlaces);
                     setStatus('點店家路徑規劃');
-
-                    let recommendationHtml = '<p class="font-semibold text-indigo-800 mb-2">為您挑出了五家口袋名單！</p><ul class="space-y-2">';
-                    recommendations.forEach(rec => {
-                         recommendationHtml += `<li class="text-sm text-indigo-800"><strong class="text-indigo-700">${rec.name}</strong>：${rec.reason}</li>`;
-                    });
-                    recommendationHtml += '</ul>';
-                    aiRecommendationBoxes.forEach(box => { box.innerHTML = recommendationHtml; });
+                    let html = '<p class="font-semibold text-indigo-800 mb-2">為您挑出了五家口袋名單！</p><ul class="space-y-2">';
+                    recommendations.forEach(rec => { html += `<li class="text-sm text-indigo-800"><strong class="text-indigo-700">${rec.name}</strong>：${rec.reason}</li>`; });
+                    html += '</ul>';
+                    aiRecommendationBoxes.forEach(box => { box.innerHTML = html; });
                 } else {
                     aiRecommendationBoxes.forEach(box => { box.innerHTML = `<p class="text-sm text-red-600">抱歉，AI 目前無法提供建議。</p>`; });
                     isAiMode = false;
@@ -496,55 +405,21 @@
         performSearchBtns.forEach(btn => btn.addEventListener('click', performSearch));
         document.getElementById('ai-decide-btn-desktop').addEventListener('click', getAIFiveChoices);
         document.getElementById('ai-decide-btn-mobile').addEventListener('click', getAIFiveChoices);
-        document.getElementById('back-to-search-btn-mobile').addEventListener('click', showSearchView);
         
-        // --- MOBILE BOTTOM SHEET LOGIC ---
-        const sheet = document.getElementById('bottom-sheet');
-        const grabber = document.getElementById('sheet-grabber');
-        let startY, startHeight;
-
-        const setSheetState = (state) => {
-            const closedHeight = window.innerHeight - 88;
-            const halfHeight = window.innerHeight * 0.5;
-            const fullHeight = 0;
-            if (state === 'closed') sheet.style.transform = `translateY(${closedHeight}px)`;
-            else if (state === 'half') sheet.style.transform = `translateY(${halfHeight}px)`;
-            else if (state === 'full') sheet.style.transform = `translateY(${fullHeight}px)`;
-            map.invalidateSize(); // Important for map to resize correctly
+        // Mobile Panel Controls
+        const mobileSearchPanel = document.getElementById('mobile-search-panel');
+        const mobileResultsPanel = document.getElementById('mobile-results-panel-container');
+        const showResultsView = () => {
+             mobileResultsPanel.classList.remove('-translate-x-full');
+             mobileSearchPanel.classList.add('-translate-x-full');
         };
-
-        const onTouchStart = (e) => {
-            startY = e.touches[0].clientY;
-            startHeight = sheet.getBoundingClientRect().top;
-            sheet.style.transition = 'none';
-        };
-
-        const onTouchMove = (e) => {
-            const delta = e.touches[0].clientY - startY;
-            const newTop = startHeight + delta;
-            if (newTop >= 0) { // Don't allow pulling down past the bottom
-                sheet.style.transform = `translateY(${newTop}px)`;
-            }
-        };
-
-        const onTouchEnd = () => {
-            sheet.style.transition = 'transform 0.3s ease-out';
-            const currentTop = sheet.getBoundingClientRect().top;
-            const midPoint = window.innerHeight * 0.75;
-            const highPoint = window.innerHeight * 0.25;
-
-            if (currentTop > midPoint) setSheetState('closed');
-            else if (currentTop > highPoint) setSheetState('half');
-            else setSheetState('full');
-        };
-
-        grabber.addEventListener('touchstart', onTouchStart);
-        grabber.addEventListener('touchmove', onTouchMove);
-        grabber.addEventListener('touchend', onTouchEnd);
-        
-        // Initial state
-        setSheetState('closed');
-
+        document.getElementById('open-search-panel-btn').addEventListener('click', () => {
+            mobileSearchPanel.classList.remove('-translate-x-full');
+            mobileResultsPanel.classList.add('-translate-x-full');
+        });
+        document.getElementById('open-results-panel-btn').addEventListener('click', showResultsView);
+        document.getElementById('close-search-panel-btn').addEventListener('click', () => mobileSearchPanel.classList.add('-translate-x-full'));
+        document.getElementById('close-results-panel-btn').addEventListener('click', () => mobileResultsPanel.classList.add('-translate-x-full'));
     });
 </script>
 
