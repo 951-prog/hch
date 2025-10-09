@@ -185,7 +185,7 @@
         
         let currentSearchCoords = null;
         let currentPlaces = [];
-        let isAiMode = false;
+        let displayedPlaces = [];
         let searchLayer = L.layerGroup();
         let poiLayer = L.layerGroup();
         let radiusCircle = null;
@@ -205,6 +205,16 @@
             geocoder: L.Control.Geocoder.nominatim(), show: false, collapsible: true, createMarker: () => null
         }).addTo(map);
         
+        routingControl.on('waypointschanged', function(e) {
+            if (e.waypoints.length === 0) {
+                // Route was cleared, restore markers for the currently displayed list
+                poiLayer.clearLayers();
+                displayedPlaces.forEach(item => {
+                    item.marker.addTo(poiLayer);
+                });
+            }
+        });
+
         const resetAIBox = () => aiRecommendationBoxes.forEach(box => {
             box.className = 'ai-recommendation mb-4 p-3 bg-white border border-gray-200 rounded-lg text-sm text-gray-500';
             box.innerHTML = `<div class="flex items-start"><svg class="w-6 h-6 text-gray-400 mr-3 flex-shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm2.12 15.88L12 17l-2.12 1.12a.5.5 0 0 1-.73-.55l.4-2.35-1.7-1.66a.5.5 0 0 1 .28-.85l2.36-.34.01-.01L12 9.5l1.06 2.14.01.01 2.36.34a.5.5 0 0 1 .28.85l-1.7 1.66.4 2.35a.5.5 0 0 1-.73.55z"/></svg><p>執行搜尋後，AI 將在此為您推薦最棒的選擇！</p></div>`;
@@ -215,7 +225,7 @@
         function clearAllLayers(clearRoute = true) {
             searchLayer.clearLayers(); poiLayer.clearLayers();
             resultsLists.forEach(l => l.innerHTML = '');
-            resetAIBox(); currentPlaces = []; isAiMode = false;
+            resetAIBox(); currentPlaces = []; displayedPlaces = [];
             document.getElementById('ai-decide-btn-desktop').disabled = true;
             document.getElementById('ai-decide-btn-mobile').disabled = true;
             document.getElementById('desktop-results-header').classList.add('opacity-0');
@@ -272,7 +282,7 @@
             if (!currentSearchCoords) { setStatus('請先設定中心點'); return; }
             setLoadingState('正在搜尋...');
             if(window.innerWidth < 768) showResultsView();
-            isAiMode = false; poiLayer.clearLayers(); currentPlaces = [];
+            poiLayer.clearLayers(); currentPlaces = []; displayedPlaces = [];
             resultsLists.forEach(l => l.innerHTML = '');
             routingControl.setWaypoints([]); routingControl.hide();
             if (radiusCircle) map.removeLayer(radiusCircle);
@@ -294,11 +304,12 @@
                         marker.addTo(poiLayer);
                         currentPlaces.push({ data: place, marker: marker });
                     });
+                    displayedPlaces = currentPlaces;
                     document.getElementById('ai-decide-btn-desktop').disabled = false;
                     document.getElementById('ai-decide-btn-mobile').disabled = false;
                     setStatus(`找到 ${placesData.length} 個結果`);
-                    renderResults(currentPlaces);
-                    getAIRecommendation(currentPlaces, document.querySelector('input[name="category"]:checked + label').textContent);
+                    renderResults(displayedPlaces);
+                    getAIRecommendation(displayedPlaces, document.querySelector('input[name="category"]:checked + label').textContent);
                 } else {
                     document.getElementById('ai-decide-btn-desktop').disabled = true;
                     document.getElementById('ai-decide-btn-mobile').disabled = true;
@@ -321,7 +332,8 @@
                     li.innerHTML = `<div class="flex justify-between items-center"><p class="font-semibold text-gray-800 truncate pr-2">${name}</p><div class="flex items-center flex-shrink-0"><svg class="w-4 h-4 text-yellow-400 mr-1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" /></svg><span class="font-bold text-gray-700 text-sm">${ratingText}</span></div></div>`;
                     li.addEventListener('click', () => {
                         if (currentSearchCoords) {
-                            if (isAiMode) { poiLayer.clearLayers(); marker.addTo(poiLayer); }
+                            poiLayer.clearLayers();
+                            marker.addTo(poiLayer);
                             routingControl.setWaypoints([L.latLng(currentSearchCoords.lat, currentSearchCoords.lon), L.latLng(lat, lon)]);
                             routingControl.show(); map.flyTo([lat, lon], 17); marker.openPopup();
                             if (window.innerWidth < 768) {
@@ -367,7 +379,6 @@
 
         async function getAIFiveChoices() {
             if (!currentPlaces || currentPlaces.length === 0) return;
-            isAiMode = true;
             aiRecommendationBoxes.forEach(box => { setLoadingState(box, 'AI 正在為您挑選五家口袋名單...'); box.className = 'ai-recommendation mb-4 p-3 bg-indigo-50 border border-indigo-200 rounded-lg'; });
             const topPlaces = currentPlaces.slice(0, 10).map(p => `- ${p.data.tags.name} (評分: ${p.data.tags.rating || '無'})`).join('\n');
             const category = document.querySelector('input[name="category"]:checked + label').textContent;
@@ -379,8 +390,8 @@
                 const recommendations = JSON.parse(jsonString);
                 if (recommendations && recommendations.length > 0) {
                     const recommendedNames = recommendations.map(r => r.name);
-                    const filteredPlaces = currentPlaces.filter(p => recommendedNames.includes(p.data.tags.name));
-                    renderResults(filteredPlaces);
+                    displayedPlaces = currentPlaces.filter(p => recommendedNames.includes(p.data.tags.name));
+                    renderResults(displayedPlaces);
                     setStatus('點店家路徑規劃');
                     let html = '<p class="font-semibold text-indigo-800 mb-2">為您挑出了五家口袋名單！</p><ul class="space-y-2">';
                     recommendations.forEach(rec => { html += `<li class="text-sm text-indigo-800"><strong class="text-indigo-700">${rec.name}</strong>：${rec.reason}</li>`; });
@@ -388,12 +399,10 @@
                     aiRecommendationBoxes.forEach(box => { box.innerHTML = html; });
                 } else {
                     aiRecommendationBoxes.forEach(box => { box.innerHTML = `<p class="text-sm text-red-600">抱歉，AI 目前無法提供建議。</p>`; });
-                    isAiMode = false;
                 }
             } catch (error) {
                 console.error("AI 5 choices error:", error);
                 aiRecommendationBoxes.forEach(box => { box.innerHTML = `<p class="text-sm text-red-600"><strong>AI 推薦失敗：</strong> ${error.message}</p>`; });
-                isAiMode = false;
             }
         }
 
