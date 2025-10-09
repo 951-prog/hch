@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>地圖搜尋與路徑規劃</title>
+    
+    <!-- Tailwind CSS for styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Leaflet.js for Map Display -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+    
+    <!-- Leaflet Routing Machine for Path Planning -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.css" />
+    <script src="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.js"></script>
+
+    <!-- Leaflet Control Geocoder for Nominatim integration in Routing Machine -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.css" />
+    <script src="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.js"></script>
+    
+    <style>
+        /* Ensure map fills the container */
+        html, body {
+            height: 100%;
+            margin: 0;
+            padding: 0;
+            overflow: hidden; /* Prevent body scroll */
+        }
+        #map {
+            height: 100%;
+            width: 100%;
+            cursor: default;
+        }
+        /* Custom styles for routing machine */
+        .leaflet-routing-container {
+            background-color: white;
+            padding: 1rem;
+            border-radius: 0.5rem;
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+        }
+        /* Hide the input fields of the routing machine */
+        .leaflet-routing-geocoders {
+            display: none;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 font-sans">
+
+<div class="flex h-screen w-screen">
+    <!-- Sidebar for controls and results -->
+    <div class="w-full md:w-1/3 lg:w-1/4 xl:w-1/5 bg-white shadow-lg p-4 flex flex-col z-10 h-screen">
+        <header class="mb-4 pb-4 border-b">
+            <h1 class="text-2xl font-bold text-gray-800">地圖工具</h1>
+            <p class="text-sm text-gray-500">搜尋地點、尋找店家、規劃路徑</p>
+        </header>
+
+        <!-- Search Section -->
+        <div class="mb-4">
+            <label for="search-input" class="text-sm font-medium text-gray-700">1. 搜尋中心地點</label>
+            <div class="mt-1 flex rounded-md shadow-sm">
+                <input type="text" id="search-input" class="flex-1 block w-full rounded-none rounded-l-md border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm px-3 py-2" placeholder="例如：台北101">
+                <button id="search-button" class="inline-flex items-center rounded-r-md border border-l-0 border-gray-300 bg-gray-50 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                </button>
+            </div>
+        </div>
+
+        <!-- Action Buttons -->
+        <div class="mb-4">
+             <label for="find-beverages-button" class="text-sm font-medium text-gray-700">2. 尋找飲料店</label>
+            <button id="find-beverages-button" class="mt-1 w-full inline-flex justify-center items-center rounded-md border border-transparent bg-indigo-600 px-4 py-2 text-base font-medium text-white shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:bg-gray-400 disabled:cursor-not-allowed">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5c.67 0 1.35.09 2 .26 1.78.47 2.99 2.25 2.99 4.24v3.51l2.56.96a.5.5 0 0 1 .44.49v2a.5.5 0 0 1-.44.49l-2.56.96V21a1 1 0 0 1-1 1h-6a1 1 0 0 1-1-1v-1.01l-2.56-.96a.5.5 0 0 1-.44-.49v-2a.5.5 0 0 1 .44-.49l2.56-.96V9.5C5.01 7.51 6.22 5.73 8 5.26c.65-.17 1.33-.26 2-.26Z"></path><path d="M8 8a4 4 0 1 0 8 0"></path></svg>
+                <span class="ml-2">尋找附近店家 (500m)</span>
+            </button>
+        </div>
+        
+        <!-- Routing Instructions -->
+        <div class="mb-4 p-3 bg-green-100 text-green-800 rounded-lg text-sm">
+            <p><strong class="font-semibold">3. 規劃路徑</strong></p>
+            <p>點擊下方列表中的店家，即可自動規劃路徑。</p>
+        </div>
+
+        <!-- Results Section -->
+        <div class="flex-1 overflow-y-auto">
+            <h2 class="text-lg font-semibold text-gray-800 mb-2">搜尋結果</h2>
+            <div id="status" class="text-sm text-gray-500">請先搜尋一個地點。</div>
+            <ul id="results-list" class="space-y-2"></ul>
+        </div>
+    </div>
+
+    <!-- Map Container -->
+    <div id="map" class="flex-grow"></div>
+</div>
+
+<script>
+    // --- INITIALIZATION ---
+    // DOM Elements
+    const searchInput = document.getElementById('search-input');
+    const searchButton = document.getElementById('search-button');
+    const findBeveragesButton = document.getElementById('find-beverages-button');
+    const statusDiv = document.getElementById('status');
+    const resultsList = document.getElementById('results-list');
+
+    // Map State
+    let currentSearchCoords = null;
+    let searchLayer = L.layerGroup();
+    let poiLayer = L.layerGroup();
+
+    findBeveragesButton.disabled = true;
+
+    // --- MAP SETUP ---
+    const map = L.map('map').setView([25.0330, 121.5654], 13);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19,
+        attribution: '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+    }).addTo(map);
+
+    searchLayer.addTo(map);
+    poiLayer.addTo(map);
+
+    const routingControl = L.Routing.control({
+        waypoints: [],
+        routeWhileDragging: false,
+        geocoder: L.Control.Geocoder.nominatim(),
+        lineOptions: { styles: [{color: 'blue', opacity: 0.8, weight: 6}] },
+        show: false,
+        collapsible: true
+    }).addTo(map);
+
+    // --- FUNCTIONS ---
+
+    /**
+     * Searches for a location using the Nominatim API.
+     */
+    async function searchLocation() {
+        const query = searchInput.value;
+        if (!query) {
+            statusDiv.textContent = '請輸入要搜尋的關鍵字。';
+            return;
+        }
+
+        statusDiv.innerHTML = `<div class="flex items-center"><svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-gray-700" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>正在搜尋...</div>`;
+        resultsList.innerHTML = '';
+        clearAllLayers();
+        routingControl.setWaypoints([]); // Clear previous route
+
+        try {
+            const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&accept-language=zh-tw`);
+            if (!response.ok) throw new Error(`HTTP 錯誤! 狀態: ${response.status}`);
+            const data = await response.json();
+
+            if (data && data.length > 0) {
+                const bestResult = data[0];
+                const { lat, lon, display_name } = bestResult;
+                currentSearchCoords = { lat: parseFloat(lat), lon: parseFloat(lon) };
+                map.flyTo([lat, lon], 16);
+
+                L.marker([lat, lon]).addTo(searchLayer).bindPopup(`<b>${display_name}</b>`).openPopup();
+                L.circle([lat, lon], {
+                    radius: 500, color: '#3388ff', fillColor: '#3388ff', fillOpacity: 0.2, weight: 1
+                }).addTo(searchLayer);
+
+                statusDiv.textContent = `找到地點：${display_name}`;
+                findBeveragesButton.disabled = false;
+            } else {
+                statusDiv.textContent = '找不到符合的地點，請嘗試其他關鍵字。';
+                currentSearchCoords = null;
+                findBeveragesButton.disabled = true;
+            }
+        } catch (error) {
+            console.error('搜尋地點時發生錯誤:', error);
+            statusDiv.textContent = '搜尋時發生錯誤，請稍後再試。';
+            currentSearchCoords = null;
+            findBeveragesButton.disabled = true;
+        }
+    }
+
+    /**
+     * Finds nearby beverage shops using the Overpass API.
+     */
+    async function findNearbyBeverageShops() {
+        if (!currentSearchCoords) {
+            statusDiv.textContent = '請先搜尋一個中心點。';
+            return;
+        }
+
+        statusDiv.innerHTML = `<div class="flex items-center"><svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-gray-700" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>正在尋找附近的飲料店...</div>`;
+        resultsList.innerHTML = '';
+        poiLayer.clearLayers();
+        routingControl.setWaypoints([]); // Clear previous route
+
+        const query = `[out:json][timeout:25];(node["amenity"~"cafe|bar|pub"](around:500,${currentSearchCoords.lat},${currentSearchCoords.lon});way["amenity"~"cafe|bar|pub"](around:500,${currentSearchCoords.lat},${currentSearchCoords.lon});relation["amenity"~"cafe|bar|pub"](around:500,${currentSearchCoords.lat},${currentSearchCoords.lon});node["shop"~"beverages|tea"](around:500,${currentSearchCoords.lat},${currentSearchCoords.lon});way["shop"~"beverages|tea"](around:500,${currentSearchCoords.lat},${currentSearchCoords.lon});relation["shop"~"beverages|tea"](around:500,${currentSearchCoords.lat},${currentSearchCoords.lon}););out center;`;
+        
+        try {
+            const response = await fetch(`https://overpass-api.de/api/interpreter?data=${encodeURIComponent(query)}`);
+            if (!response.ok) throw new Error(`HTTP 錯誤! 狀態: ${response.status}`);
+            const data = await response.json();
+            let shops = data.elements.filter(el => el.tags && el.tags.name);
+            
+            shops.sort((a, b) => (parseFloat(b.tags.rating) || 0) - (parseFloat(a.tags.rating) || 0));
+
+            if (shops.length > 0) {
+                statusDiv.textContent = `在 500 公尺範圍內找到 ${shops.length} 間店家。請點擊店家以規劃路徑。`;
+                shops.forEach((shop) => {
+                    const lat = shop.lat || shop.center.lat;
+                    const lon = shop.lon || shop.center.lon;
+                    const name = shop.tags.name;
+                    const rating = shop.tags.rating || '無';
+                    const ratingText = isNaN(parseFloat(rating)) ? rating : parseFloat(rating).toFixed(1);
+
+                    const marker = L.marker([lat, lon]).addTo(poiLayer).bindPopup(`<b>${name}</b><br>OSM 評分: ${ratingText}`);
+                    
+                    const li = document.createElement('li');
+                    li.className = 'p-3 rounded-md hover:bg-gray-100 cursor-pointer border';
+                    li.innerHTML = `<div class="flex justify-between items-center"><p class="font-semibold text-gray-800">${name}</p><p class="text-sm text-gray-600">評分：<span class="font-bold text-indigo-600 text-base">${ratingText}</span></p></div>`;
+                    
+                    li.addEventListener('click', () => {
+                        if (currentSearchCoords) {
+                            const startPoint = L.latLng(currentSearchCoords.lat, currentSearchCoords.lon);
+                            const endPoint = L.latLng(lat, lon);
+                            
+                            routingControl.setWaypoints([startPoint, endPoint]);
+                            routingControl.show();
+                            
+                            map.flyTo([lat, lon], 17);
+                            marker.openPopup();
+                        }
+                    });
+                    resultsList.appendChild(li);
+                });
+            } else {
+                statusDiv.textContent = '在 500 公尺範圍內找不到飲料店。';
+            }
+        } catch (error) {
+            console.error('尋找附近店家時發生錯誤:', error);
+            statusDiv.textContent = '尋找店家時發生錯誤，請稍後再試。';
+        }
+    }
+
+    function clearAllLayers() {
+        searchLayer.clearLayers();
+        poiLayer.clearLayers();
+        currentSearchCoords = null;
+        findBeveragesButton.disabled = true;
+    }
+
+    // --- EVENT LISTENERS ---
+    searchButton.addEventListener('click', searchLocation);
+    searchInput.addEventListener('keydown', (event) => { if (event.key === 'Enter') searchLocation(); });
+    findBeveragesButton.addEventListener('click', findNearbyBeverageShops);
+
+</script>
+
+</body>
+</html>
+
