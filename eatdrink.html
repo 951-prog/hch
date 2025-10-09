@@ -1,0 +1,524 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>吃吃喝喝地圖</title>
+    <!-- Tailwind CSS for styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Leaflet CSS for map -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+    <!-- Leaflet Routing Machine CSS for routing -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.css" />
+    <style>
+        /* Custom styles */
+        html, body {
+            height: 100%;
+            margin: 0;
+            font-family: 'Inter', 'Noto Sans TC', sans-serif;
+            overflow: hidden; /* Prevent body scroll */
+        }
+        #map {
+            height: 100%;
+            width: 100%;
+            z-index: 10;
+        }
+        /* Custom styles for leaflet routing machine itinerary */
+        .leaflet-routing-container {
+            background-color: white;
+            padding: 1rem;
+            border-radius: 0.5rem;
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+        }
+        /* Sidebar transition */
+        #sidebar {
+            transition: transform 0.3s ease-in-out;
+        }
+        .sidebar-closed {
+            transform: translateX(-100%);
+        }
+        /* Loading spinner */
+        .loader {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #3498db;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .info-popup {
+            position: absolute;
+            bottom: 1rem;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: rgba(0, 0, 0, 0.75);
+            color: white;
+            padding: 0.5rem 1rem;
+            border-radius: 9999px;
+            z-index: 1000;
+            font-size: 0.875rem;
+            display: none; /* Hidden by default */
+            animation: fadeInOut 4s ease-in-out;
+        }
+        @keyframes fadeInOut {
+            0%, 100% { opacity: 0; }
+            10%, 90% { opacity: 1; }
+        }
+    </style>
+</head>
+<body class="relative">
+
+    <!-- Main Container -->
+    <div id="app" class="relative w-screen h-screen">
+        <!-- Map Container -->
+        <div id="map"></div>
+
+        <!-- Sidebar for Controls and Results -->
+        <div id="sidebar" class="absolute top-0 left-0 h-full w-full max-w-sm bg-white/90 backdrop-blur-sm z-20 shadow-lg p-4 flex flex-col sidebar-closed md:sidebar-closed-none md:transform-none">
+            <!-- Header -->
+            <div class="flex-shrink-0">
+                <div class="flex justify-between items-center mb-2">
+                    <h1 class="text-2xl font-bold text-gray-800">吃吃喝喝地圖</h1>
+                    <button id="close-sidebar-btn" class="md:hidden text-gray-600 hover:text-gray-900">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                    </button>
+                </div>
+                <p class="text-xs text-gray-500">製作者: 黃建勳</p>
+                <p class="text-xs text-gray-500 mt-1">本地圖由 OpenStreetMap 與 Gemini 完成，資訊非即時更新，僅供參考。</p>
+            </div>
+            
+            <div class="border-t my-4"></div>
+
+            <!-- Controls -->
+            <div class="flex-shrink-0">
+                <!-- Step 1: Location -->
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">1. 定位或搜尋位置</label>
+                    <div class="flex items-center space-x-2">
+                        <input type="text" id="search-location" placeholder="輸入地址或地點..." class="flex-grow block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                        <button id="geolocate-btn" class="p-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500" title="自動定位">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clip-rule="evenodd" /></svg>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Step 2: Category -->
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">2. 選擇店家類型</label>
+                    <select id="category" class="block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                        <option value="food">美食 (餐廳、小吃)</option>
+                        <option value="coffee">咖啡廳</option>
+                        <option value="drinks">手搖飲</option>
+                    </select>
+                </div>
+
+                <!-- Step 3: Radius -->
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">3. 選擇搜尋範圍</label>
+                    <select id="radius" class="block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                        <option value="250">250 公尺</option>
+                        <option value="500">500 公尺</option>
+                        <option value="1000">1 公里</option>
+                    </select>
+                </div>
+
+                <!-- Step 4: Search Button -->
+                <button id="search-btn" class="w-full bg-indigo-600 text-white py-2 px-4 rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 flex items-center justify-center space-x-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd" /></svg>
+                    <span>執行搜尋</span>
+                </button>
+            </div>
+            
+            <div class="border-t my-4"></div>
+
+            <!-- Results -->
+            <div id="results-container" class="flex-grow overflow-y-auto">
+                <div class="flex justify-between items-center mb-2">
+                    <h2 class="text-lg font-semibold text-gray-800">搜尋結果</h2>
+                    <button id="ai-recommend-btn" class="hidden bg-green-500 text-white py-1 px-3 rounded-full text-sm hover:bg-green-600">✨ AI 推薦</button>
+                </div>
+                <div id="results-list" class="space-y-2">
+                    <p class="text-gray-500 text-center py-4">請先定位或搜尋，再執行搜尋。</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Toggle Sidebar Button (for mobile) -->
+        <button id="toggle-sidebar-btn" class="md:hidden absolute top-4 left-4 z-30 p-2 bg-white/80 backdrop-blur-sm rounded-md shadow-md">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" /></svg>
+        </button>
+
+        <!-- Loading Overlay -->
+        <div id="loading-overlay" class="hidden absolute inset-0 bg-black/50 z-50 flex items-center justify-center">
+            <div class="loader"></div>
+        </div>
+        
+        <!-- Info Popup -->
+        <div id="info-popup" class="info-popup"></div>
+    </div>
+
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+    <!-- Leaflet Routing Machine JS -->
+    <script src="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.js"></script>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // DOM Elements
+            const mapElement = document.getElementById('map');
+            const sidebar = document.getElementById('sidebar');
+            const toggleSidebarBtn = document.getElementById('toggle-sidebar-btn');
+            const closeSidebarBtn = document.getElementById('close-sidebar-btn');
+            const geolocateBtn = document.getElementById('geolocate-btn');
+            const searchLocationInput = document.getElementById('search-location');
+            const searchBtn = document.getElementById('search-btn');
+            const resultsList = document.getElementById('results-list');
+            const aiRecommendBtn = document.getElementById('ai-recommend-btn');
+            const loadingOverlay = document.getElementById('loading-overlay');
+            const infoPopup = document.getElementById('info-popup');
+
+            // State variables
+            let map;
+            let userMarker;
+            let searchCircle;
+            let routingControl;
+            let resultMarkers = [];
+            let allResults = [];
+            
+            // Default location (Taipei)
+            const defaultCenter = [25.0330, 121.5654];
+
+            // --- Map Initialization ---
+            function initMap() {
+                map = L.map(mapElement).setView(defaultCenter, 13);
+                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                    maxZoom: 19,
+                    attribution: '© <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+                }).addTo(map);
+                
+                // Add scale control
+                L.control.scale({ imperial: false, metric: true }).addTo(map);
+            }
+
+            // --- UI Functions ---
+            function toggleSidebar() {
+                sidebar.classList.toggle('sidebar-closed');
+            }
+
+            function showLoading(show) {
+                loadingOverlay.style.display = show ? 'flex' : 'none';
+            }
+
+            function showPopup(message) {
+                infoPopup.textContent = message;
+                infoPopup.style.display = 'block';
+                // Trigger reflow to restart animation
+                infoPopup.style.animation = 'none';
+                infoPopup.offsetHeight; // no-op
+                infoPopup.style.animation = 'fadeInOut 4s ease-in-out';
+            }
+
+            // --- Location Functions ---
+            function updateUserLocation(lat, lon, zoom = 16, updateInput = false) {
+                const latlng = [lat, lon];
+                if (userMarker) {
+                    userMarker.setLatLng(latlng);
+                } else {
+                    const userIcon = L.divIcon({
+                        html: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-8 h-8 text-blue-600"><path fill-rule="evenodd" d="M11.54 22.351l.07.04.028.016a.76.76 0 00.723 0l.028-.015.071-.041a16.975 16.975 0 005.16-4.053l.075-.115a7.5 7.5 0 00-12.254 0l.075.115a16.975 16.975 0 005.16 4.053zM12 14.25a4.25 4.25 0 100-8.5 4.25 4.25 0 000 8.5z" clip-rule="evenodd" /></svg>',
+                        className: 'dummy',
+                        iconSize: [32, 32],
+                        iconAnchor: [16, 32]
+                    });
+                    userMarker = L.marker(latlng, { icon: userIcon, draggable: true }).addTo(map);
+                    userMarker.bindPopup("你的位置 (可拖動)");
+                    userMarker.on('dragend', function(event){
+                        const marker = event.target;
+                        const position = marker.getLatLng();
+                        updateUserLocation(position.lat, position.lng, map.getZoom(), true);
+                        showPopup("位置已更新");
+                    });
+                }
+                map.setView(latlng, zoom);
+                if (updateInput) {
+                     // Reverse geocode to get address
+                     fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}`)
+                        .then(response => response.json())
+                        .then(data => {
+                            searchLocationInput.value = data.display_name || '自訂座標';
+                        }).catch(err => {
+                             console.error("Reverse geocoding error:", err);
+                             searchLocationInput.value = '自訂座標';
+                        });
+                }
+            }
+
+            function handleGeolocation() {
+                showLoading(true);
+                navigator.geolocation.getCurrentPosition(
+                    (position) => {
+                        updateUserLocation(position.coords.latitude, position.coords.longitude);
+                        searchLocationInput.value = '我的目前位置';
+                        showLoading(false);
+                    },
+                    (error) => {
+                        console.error("Geolocation error: ", error);
+                        showPopup("無法取得您的位置，請手動搜尋。");
+                        showLoading(false);
+                    }
+                );
+            }
+
+            async function handleSearchLocation(query) {
+                if (!query) return;
+                showLoading(true);
+                try {
+                    const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&countrycodes=tw`);
+                    const data = await response.json();
+                    if (data && data.length > 0) {
+                        const { lat, lon } = data[0];
+                        updateUserLocation(parseFloat(lat), parseFloat(lon));
+                    } else {
+                        showPopup("找不到地點，請嘗試其他關鍵字。");
+                    }
+                } catch (error) {
+                    console.error("Geocoding API error:", error);
+                    showPopup("搜尋時發生錯誤。");
+                } finally {
+                    showLoading(false);
+                }
+            }
+
+            // --- Search & Results Functions ---
+            function clearMapFeatures() {
+                // Clear previous results
+                if (searchCircle) map.removeLayer(searchCircle);
+                resultMarkers.forEach(marker => map.removeLayer(marker));
+                resultMarkers = [];
+                // Clear routing
+                if (routingControl) {
+                    map.removeControl(routingControl);
+                    routingControl = null;
+                }
+            }
+            
+            function getOverpassQuery(category, radius, lat, lon) {
+                let tags;
+                switch(category) {
+                    case 'food':
+                        tags = `["amenity"~"restaurant|fast_food|food_court"]["cuisine"]`;
+                        break;
+                    case 'coffee':
+                        tags = `["amenity"="cafe"]`;
+                        break;
+                    case 'drinks':
+                        tags = `["amenity"="cafe"]["cuisine"~"bubble_tea|tea"]`;
+                        break;
+                }
+                
+                return `[out:json][timeout:25];
+                        (
+                          node${tags}(around:${radius},${lat},${lon});
+                          way${tags}(around:${radius},${lat},${lon});
+                          relation${tags}(around:${radius},${lat},${lon});
+                        );
+                        out body;
+                        >;
+                        out skel qt;`;
+            }
+
+            async function executeSearch() {
+                if (!userMarker) {
+                    showPopup("請先使用定位功能或搜尋一個地點！");
+                    return;
+                }
+
+                showLoading(true);
+                clearMapFeatures();
+                resultsList.innerHTML = '';
+                aiRecommendBtn.classList.add('hidden');
+
+                const { lat, lng } = userMarker.getLatLng();
+                const category = document.getElementById('category').value;
+                const radius = parseInt(document.getElementById('radius').value, 10);
+                
+                // Draw search radius circle
+                searchCircle = L.circle([lat, lng], {
+                    radius: radius,
+                    color: 'blue',
+                    fillColor: '#3498db',
+                    fillOpacity: 0.1,
+                    weight: 1
+                }).addTo(map);
+                map.fitBounds(searchCircle.getBounds());
+
+                const query = getOverpassQuery(category, radius, lat, lng);
+                const url = `https://overpass-api.de/api/interpreter?data=${encodeURIComponent(query)}`;
+
+                try {
+                    const response = await fetch(url);
+                    const data = await response.json();
+                    allResults = data.elements.filter(el => el.tags && el.tags.name).map(el => {
+                        const pos = el.type === 'node' ? {lat: el.lat, lon: el.lon} : {lat: el.center.lat, lon: el.center.lon};
+                        return {
+                            id: el.id,
+                            name: el.tags.name,
+                            lat: pos.lat,
+                            lon: pos.lon
+                        };
+                    });
+                    
+                    displayResults(allResults);
+
+                } catch (error) {
+                    console.error("Overpass API error:", error);
+                    resultsList.innerHTML = `<p class="text-gray-500 text-center py-4">搜尋時發生錯誤，請稍後再試。</p>`;
+                } finally {
+                    showLoading(false);
+                }
+            }
+
+            function displayResults(results) {
+                if (results.length === 0) {
+                    resultsList.innerHTML = `<p class="text-gray-500 text-center py-4">在此範圍內找不到店家。</p>`;
+                    return;
+                }
+                
+                results.forEach((item, index) => {
+                    // Create map marker
+                    const marker = L.marker([item.lat, item.lon]).addTo(map);
+                    marker.bindPopup(`<b>${item.name}</b>`);
+                    resultMarkers.push(marker);
+
+                    // Create list item
+                    const listItem = document.createElement('div');
+                    listItem.className = 'p-3 bg-white rounded-lg shadow-sm cursor-pointer hover:bg-indigo-50 border border-gray-200';
+                    listItem.innerHTML = `
+                        <div class="font-semibold text-gray-800">${index + 1}. ${item.name}</div>
+                        <button class="route-btn text-sm text-white bg-blue-500 hover:bg-blue-600 rounded-full px-3 py-1 mt-2">規劃步行路線</button>
+                    `;
+
+                    // Click to pan to marker
+                    listItem.addEventListener('click', (e) => {
+                        if (e.target.classList.contains('route-btn')) return;
+                        map.setView([item.lat, item.lon], 18);
+                        marker.openPopup();
+                    });
+
+                    // Route button click
+                    listItem.querySelector('.route-btn').addEventListener('click', () => {
+                        planRoute(item);
+                    });
+                    
+                    resultsList.appendChild(listItem);
+                });
+                
+                aiRecommendBtn.classList.remove('hidden');
+            }
+
+            function handleAIRecommendation() {
+                if (allResults.length === 0) return;
+                
+                // Simple "AI": shuffle and pick 5
+                const shuffled = [...allResults].sort(() => 0.5 - Math.random());
+                const recommended = shuffled.slice(0, 5);
+
+                // Clear previous highlights
+                document.querySelectorAll('#results-list > div').forEach(el => {
+                    el.classList.remove('bg-green-100', 'border-green-400');
+                });
+                
+                resultsList.innerHTML = `<p class="text-center font-bold text-green-700 mb-2">✨ 為您推薦 5 間店 ✨</p>`;
+                
+                const recommendedIds = new Set(recommended.map(r => r.id));
+
+                allResults.forEach((item, index) => {
+                    const listItem = document.createElement('div');
+                    listItem.className = 'p-3 bg-white rounded-lg shadow-sm cursor-pointer hover:bg-indigo-50 border';
+                    
+                    if (recommendedIds.has(item.id)) {
+                        listItem.classList.add('bg-green-100', 'border-green-400');
+                    } else {
+                        listItem.classList.add('border-gray-200');
+                    }
+
+                    listItem.innerHTML = `
+                        <div class="font-semibold text-gray-800">${index + 1}. ${item.name}</div>
+                        <button class="route-btn text-sm text-white bg-blue-500 hover:bg-blue-600 rounded-full px-3 py-1 mt-2">規劃步行路線</button>
+                    `;
+                    
+                    listItem.addEventListener('click', (e) => {
+                        if (e.target.classList.contains('route-btn')) return;
+                        map.setView([item.lat, item.lon], 18);
+                        resultMarkers.find(m => m.getLatLng().lat === item.lat && m.getLatLng().lng === item.lon)?.openPopup();
+                    });
+                     listItem.querySelector('.route-btn').addEventListener('click', () => {
+                        planRoute(item);
+                    });
+
+                    resultsList.appendChild(listItem);
+                });
+            }
+
+            // --- Routing Functions ---
+            function planRoute(destination) {
+                if (!userMarker) {
+                    showPopup("無法規劃路線，請先定位。");
+                    return;
+                }
+                
+                clearMapFeatures(); // Clear markers and circle
+
+                const startPoint = userMarker.getLatLng();
+                const endPoint = L.latLng(destination.lat, destination.lon);
+
+                if (routingControl) {
+                    map.removeControl(routingControl);
+                }
+
+                routingControl = L.Routing.control({
+                    waypoints: [startPoint, endPoint],
+                    routeWhileDragging: true,
+                    show: true,
+                    router: L.Routing.osrmv1({
+                        serviceUrl: `https://router.project-osrm.org/route/v1`,
+                        profile: 'foot' // Walking
+                    }),
+                    createMarker: function(i, waypoint, n) {
+                        const markerOptions = {
+                            draggable: i === 0, // only start point is draggable
+                        };
+                        const marker = L.marker(waypoint.latLng, markerOptions);
+                        const label = i === 0 ? `<b>起點</b><br>你的位置` : `<b>終點</b><br>${destination.name}`;
+                        return marker.bindPopup(label);
+                    }
+                }).addTo(map);
+                
+                // On mobile, close sidebar to show the map
+                if (window.innerWidth < 768) {
+                    toggleSidebar();
+                }
+            }
+
+            // --- Event Listeners ---
+            toggleSidebarBtn.addEventListener('click', toggleSidebar);
+            closeSidebarBtn.addEventListener('click', toggleSidebar);
+            geolocateBtn.addEventListener('click', handleGeolocation);
+            searchLocationInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    handleSearchLocation(e.target.value);
+                }
+            });
+            searchBtn.addEventListener('click', executeSearch);
+            aiRecommendBtn.addEventListener('click', handleAIRecommendation);
+
+            // --- Initial Setup ---
+            initMap();
+        });
+    </script>
+</body>
+</html>
