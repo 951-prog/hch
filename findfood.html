@@ -30,7 +30,6 @@
         .panel-scrollbar::-webkit-scrollbar { width: 6px; }
         .panel-scrollbar::-webkit-scrollbar-track { background: #f8fafc; }
         .panel-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px;}
-        .panel-scrollbar::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
         .mobile-panel { transition: transform 0.3s ease-in-out; }
     </style>
 </head>
@@ -183,20 +182,15 @@
         const resultsLists = document.querySelectorAll('.results-list');
         const aiRecommendationBoxes = document.querySelectorAll('.ai-recommendation');
         
-        let currentSearchCoords = null;
-        let currentPlaces = [];
-        let displayedPlaces = [];
-        let searchLayer = L.layerGroup();
-        let poiLayer = L.layerGroup();
-        let radiusCircle = null;
+        let currentSearchCoords = null, currentPlaces = [], displayedPlaces = [];
+        let searchLayer = L.layerGroup(), poiLayer = L.layerGroup(), radiusCircle = null;
         
         const categoryQueries = { food: '[amenity~"restaurant|fast_food|food_court"]', cafe: '[amenity="cafe"]', drinks: '[shop~"beverages|tea"]' };
 
         const map = L.map('map', { zoomControl: false }).setView([25.0478, 121.5319], 13);
         L.control.zoom({ position: 'bottomleft' }).addTo(map);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '&copy; OpenStreetMap' }).addTo(map);
-        searchLayer.addTo(map);
-        poiLayer.addTo(map);
+        searchLayer.addTo(map); poiLayer.addTo(map);
 
         const routingControl = L.Routing.control({
             waypoints: [], routeWhileDragging: false,
@@ -205,13 +199,10 @@
             geocoder: L.Control.Geocoder.nominatim(), show: false, collapsible: true, createMarker: () => null
         }).addTo(map);
         
-        routingControl.on('waypointschanged', function(e) {
+        routingControl.on('waypointschanged', e => {
             if (e.waypoints.length === 0) {
-                // Route was cleared, restore markers for the currently displayed list
                 poiLayer.clearLayers();
-                displayedPlaces.forEach(item => {
-                    item.marker.addTo(poiLayer);
-                });
+                displayedPlaces.forEach(item => item.marker.addTo(poiLayer));
             }
         });
 
@@ -258,20 +249,14 @@
 
         function locateUser() {
             if (!navigator.geolocation) { setStatus("瀏覽器不支援定位"); return; }
-            const locateIcon = document.getElementById('locate-icon');
-            const locateSpinner = document.getElementById('locate-spinner');
-            const showSpinner = () => { if(locateIcon) { locateIcon.classList.add('hidden'); locateSpinner.classList.remove('hidden'); } else { setLoadingState('正在取得您的位置...'); }};
-            const hideSpinner = () => { if(locateIcon) { locateIcon.classList.remove('hidden'); locateSpinner.classList.add('hidden'); }};
-
+            const locateIcon = document.getElementById('locate-icon'), spinner = document.getElementById('locate-spinner');
+            const showSpinner = () => { if(locateIcon) { locateIcon.classList.add('hidden'); spinner.classList.remove('hidden'); } else { setLoadingState('正在取得您的位置...'); }};
+            const hideSpinner = () => { if(locateIcon) { locateIcon.classList.remove('hidden'); spinner.classList.add('hidden'); }};
             showSpinner();
             navigator.geolocation.getCurrentPosition(
                 (pos) => {
-                    hideSpinner();
-                    setCenterLocation(pos.coords.latitude, pos.coords.longitude, "我的目前位置");
-                    if (window.innerWidth < 768) {
-                        document.getElementById('mobile-search-panel').classList.remove('-translate-x-full');
-                        document.getElementById('mobile-results-panel-container').classList.add('-translate-x-full');
-                    }
+                    hideSpinner(); setCenterLocation(pos.coords.latitude, pos.coords.longitude, "我的目前位置");
+                    if (window.innerWidth < 768) showSearchView();
                 },
                 () => { hideSpinner(); setStatus("無法取得位置，請確認定位權限"); },
                 { enableHighAccuracy: true, timeout: 8000, maximumAge: 0 }
@@ -290,19 +275,19 @@
             const radius = document.querySelector('input[name="radius"]:checked').value;
             radiusCircle = L.circle([currentSearchCoords.lat, currentSearchCoords.lon], { radius: parseInt(radius), color: '#4f46e5', fillColor: '#4f46e5', fillOpacity: 0.15, weight: 1.5 }).addTo(map);
             const category = categoryQueries[document.querySelector('input[name="category"]:checked').value];
-            const overpassQuery = `[out:json][timeout:25];(node${category}(around:${radius},${currentSearchCoords.lat},${currentSearchCoords.lon});way${category}(around:${radius},${currentSearchCoords.lat},${currentSearchCoords.lon}););out center;`;
+            const query = `[out:json][timeout:25];(node${category}(around:${radius},${currentSearchCoords.lat},${currentSearchCoords.lon});way${category}(around:${radius},${currentSearchCoords.lat},${currentSearchCoords.lon}););out center;`;
             
             try {
-                const response = await fetch(`https://overpass-api.de/api/interpreter?data=${encodeURIComponent(overpassQuery)}`);
+                const response = await fetch(`https://overpass-api.de/api/interpreter?data=${encodeURIComponent(query)}`);
                 const data = await response.json();
                 let placesData = data.elements.filter(el => el.tags && el.tags.name).sort((a, b) => (parseFloat(b.tags.rating) || 0) - (parseFloat(a.tags.rating) || 0));
                 
                 document.getElementById('desktop-results-header').classList.remove('opacity-0');
                 if (placesData.length > 0) {
-                    placesData.forEach(place => {
-                        const marker = L.marker([place.lat || place.center.lat, place.lon || place.center.lon]).bindPopup(`<b>${place.tags.name}</b><br>OSM 評分: ${place.tags.rating || '無'}`);
+                    placesData.forEach(p => {
+                        const marker = L.marker([p.lat || p.center.lat, p.lon || p.center.lon]).bindPopup(`<b>${p.tags.name}</b><br>OSM 評分: ${p.tags.rating || '無'}`);
                         marker.addTo(poiLayer);
-                        currentPlaces.push({ data: place, marker: marker });
+                        currentPlaces.push({ data: p, marker });
                     });
                     displayedPlaces = currentPlaces;
                     document.getElementById('ai-decide-btn-desktop').disabled = false;
@@ -313,8 +298,7 @@
                 } else {
                     document.getElementById('ai-decide-btn-desktop').disabled = true;
                     document.getElementById('ai-decide-btn-mobile').disabled = true;
-                    setStatus('找不到符合的店家');
-                    resetAIBox();
+                    setStatus('找不到符合的店家'); resetAIBox();
                 }
             } catch (error) { console.error('執行搜尋時發生錯誤:', error); setStatus('搜尋時發生錯誤'); resetAIBox(); }
         }
@@ -332,8 +316,7 @@
                     li.innerHTML = `<div class="flex justify-between items-center"><p class="font-semibold text-gray-800 truncate pr-2">${name}</p><div class="flex items-center flex-shrink-0"><svg class="w-4 h-4 text-yellow-400 mr-1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" /></svg><span class="font-bold text-gray-700 text-sm">${ratingText}</span></div></div>`;
                     li.addEventListener('click', () => {
                         if (currentSearchCoords) {
-                            poiLayer.clearLayers();
-                            marker.addTo(poiLayer);
+                            poiLayer.clearLayers(); marker.addTo(poiLayer);
                             routingControl.setWaypoints([L.latLng(currentSearchCoords.lat, currentSearchCoords.lon), L.latLng(lat, lon)]);
                             routingControl.show(); map.flyTo([lat, lon], 17); marker.openPopup();
                             if (window.innerWidth < 768) {
@@ -352,17 +335,13 @@
             if (!apiKey) throw new Error("API 金鑰未設定");
             const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
             const payload = { contents: [{ parts: [{ text: userPrompt }] }], systemInstruction: { parts: [{ text: systemPrompt }] } };
-            if (expectJson) {
-                payload.generationConfig = { responseMimeType: "application/json", responseSchema: { type: "ARRAY", items: { type: "OBJECT", properties: { name: { type: "STRING" }, reason: { type: "STRING" } }, required: ["name", "reason"] } } };
-            }
+            if (expectJson) payload.generationConfig = { responseMimeType: "application/json", responseSchema: { type: "ARRAY", items: { type: "OBJECT", properties: { name: { type: "STRING" }, reason: { type: "STRING" } }, required: ["name", "reason"] } } };
             const response = await fetch(apiUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
             if (!response.ok) {
                 const errorBody = await response.json();
-                console.error("API Error Response:", errorBody);
                 throw new Error(`API 請求失敗: ${errorBody.error?.message || '未知錯誤'}`);
             }
-            const result = await response.json();
-            return result.candidates?.[0]?.content?.parts?.[0]?.text;
+            return (await response.json()).candidates?.[0]?.content?.parts?.[0]?.text;
         }
 
         async function getAIRecommendation(places, category) {
@@ -384,7 +363,6 @@
             const category = document.querySelector('input[name="category"]:checked + label').textContent;
             const systemPrompt = "你是台灣在地嚮導。任務是從一份店家列表中，挑選出 5 家各有特色的店推薦給使用者。回覆必須是一個包含 5 個物件的 JSON 陣列。每個物件應包含 'name' (店家名稱字串) 和 'reason' (一句推薦理由字串) 兩個鍵。";
             const userPrompt = `使用者正在尋找「${category}」，請從以下店家列表中，挑選5家並以JSON格式回傳：\n${topPlaces}`;
-
             try {
                 const jsonString = await callGeminiAPI(systemPrompt, userPrompt, true);
                 const recommendations = JSON.parse(jsonString);
@@ -412,23 +390,32 @@
         locateMeBtns.forEach(btn => btn.addEventListener('click', locateUser));
         locateMeBtnMobile.addEventListener('click', locateUser);
         performSearchBtns.forEach(btn => btn.addEventListener('click', performSearch));
-        document.getElementById('ai-decide-btn-desktop').addEventListener('click', getAIFiveChoices);
-        document.getElementById('ai-decide-btn-mobile').addEventListener('click', getAIFiveChoices);
+        document.getElementById('ai-decide-btn-desktop')?.addEventListener('click', getAIFiveChoices);
+        document.getElementById('ai-decide-btn-mobile')?.addEventListener('click', getAIFiveChoices);
         
         // Mobile Panel Controls
         const mobileSearchPanel = document.getElementById('mobile-search-panel');
         const mobileResultsPanel = document.getElementById('mobile-results-panel-container');
-        const showResultsView = () => {
-             mobileResultsPanel.classList.remove('-translate-x-full');
-             mobileSearchPanel.classList.add('-translate-x-full');
+        const showSearchView = () => { 
+            if (mobileSearchPanel) mobileSearchPanel.classList.remove('-translate-x-full'); 
+            if (mobileResultsPanel) mobileResultsPanel.classList.add('-translate-x-full');
         };
-        document.getElementById('open-search-panel-btn').addEventListener('click', () => {
-            mobileSearchPanel.classList.remove('-translate-x-full');
-            mobileResultsPanel.classList.add('-translate-x-full');
-        });
-        document.getElementById('open-results-panel-btn').addEventListener('click', showResultsView);
-        document.getElementById('close-search-panel-btn').addEventListener('click', () => mobileSearchPanel.classList.add('-translate-x-full'));
-        document.getElementById('close-results-panel-btn').addEventListener('click', () => mobileResultsPanel.classList.add('-translate-x-full'));
+        const showResultsView = () => { 
+            if (mobileResultsPanel) mobileResultsPanel.classList.remove('-translate-x-full');
+            if (mobileSearchPanel) mobileSearchPanel.classList.add('-translate-x-full');
+        };
+        
+        const openSearchBtn = document.getElementById('open-search-panel-btn');
+        if(openSearchBtn) openSearchBtn.addEventListener('click', showSearchView);
+
+        const openResultsBtn = document.getElementById('open-results-panel-btn');
+        if(openResultsBtn) openResultsBtn.addEventListener('click', showResultsView);
+
+        const closeSearchBtn = document.getElementById('close-search-panel-btn');
+        if(closeSearchBtn) closeSearchBtn.addEventListener('click', () => mobileSearchPanel.classList.add('-translate-x-full'));
+        
+        const closeResultsBtn = document.getElementById('close-results-panel-btn');
+        if(closeResultsBtn) closeResultsBtn.addEventListener('click', () => mobileResultsPanel.classList.add('-translate-x-full'));
     });
 </script>
 
