@@ -430,7 +430,7 @@
 
             // --- Gemini API Functions ---
             async function handleGeminiRecommendation() {
-                if (allResults.length < 5) {
+                if (allResults.length < 3) {
                     showPopup("找到的店家太少，無法進行智能推薦。");
                     return;
                 }
@@ -440,8 +440,8 @@
                 const categoryText = categorySelect.options[categorySelect.selectedIndex].text;
                 const storeNames = allResults.map(r => r.name).join(', ');
 
-                const userQuery = `從這份店家清單中，推薦5間最值得去的店家。針對每一間店，請幻想並推薦一個最經典或必點的菜單品項，並分別提供店家推薦理由和該品項的推薦理由。店家類型是：'${categoryText}'。店家清單如下：${storeNames}`;
-                const systemPrompt = `你是一位友善且富有想像力的台灣在地美食導遊。請以繁體中文回答。你的回答必須是 JSON 格式的陣列，其中包含 5 個物件。每個物件都應有 "name" (店家名稱), "reason" (店家推薦理由), "menuItem" (推薦菜單品項), 和 "itemReason" (品項推薦理由) 四個鍵。店家名稱必須從提供的清單中選出。菜單品項和其理由可以是基於店家類型和名稱的合理推測或創意發想。`;
+                const userQuery = `從這份店家清單中，推薦3間最值得去的店家。針對每一間店，請幻想並推薦一個最經典或必點的菜單品項，並分別提供店家推薦理由和該品項的推薦理由。店家類型是：'${categoryText}'。店家清單如下：${storeNames}`;
+                const systemPrompt = `你是一位友善且富有想像力的台灣在地美食導遊。請以繁體中文回答。你的回答必須是 JSON 格式的陣列，其中包含 3 個物件。每個物件都應有 "name" (店家名稱), "reason" (店家推薦理由), "menuItem" (推薦菜單品項), 和 "itemReason" (品項推薦理由) 四個鍵。店家名稱必須從提供的清單中選出。菜單品項和其理由可以是基於店家類型和名稱的合理推測或創意發想。`;
                 const apiKey = "AIzaSyBzl00WUqXPYjPV6jMTHCyyDm5qM_aJzFQ";
                 const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
 
@@ -564,5 +564,6 @@
     </script>
 </body>
 </html>
+
 
 
