@@ -86,13 +86,13 @@
             <!-- Header -->
             <div class="flex-shrink-0">
                 <div class="flex justify-between items-center mb-2">
-                    <h1 class="text-2xl font-bold text-gray-800">吃吃喝喝地圖</h1>
+                    <h1 class="text-2xl font-bold text-gray-800">今天你想吃什麼?</h1>
                     <button id="close-sidebar-btn" class="md:hidden text-gray-600 hover:text-gray-900">
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
                     </button>
                 </div>
-                <p class="text-xs text-gray-500">製作者: 黃建勳</p>
-                <p class="text-xs text-gray-500 mt-1">本地圖由 OpenStreetMap 與 Gemini 完成，資訊非即時更新，僅供參考。</p>
+                <p class="text-xs text-gray-500">製作者: 地理學科中心</p>
+                <p class="text-xs text-gray-500 mt-1">本地圖由 OpenStreetMap 與 Gemini 生成，資訊有限且非即時更新，僅供參考。若該地點無法順利搜尋，請換地點再次嘗試。</p>
             </div>
             
             <div class="border-t my-4"></div>
@@ -115,8 +115,10 @@
                     <label class="block text-sm font-medium text-gray-700 mb-1">2. 選擇店家類型</label>
                     <select id="category" class="block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
                         <option value="food">美食 (餐廳、小吃)</option>
+                        <option value="fast_food">速食餐廳</option>
                         <option value="coffee">咖啡廳</option>
                         <option value="drinks">手搖飲</option>
+                        <option value="convenience">便利商店</option>
                     </select>
                 </div>
 
@@ -127,6 +129,7 @@
                         <option value="250">250 公尺</option>
                         <option value="500">500 公尺</option>
                         <option value="1000">1 公里</option>
+                        <option value="2000">2 公里</option>
                     </select>
                 </div>
 
@@ -339,9 +342,11 @@
             function getOverpassQuery(category, radius, lat, lon) {
                 let tags;
                 switch(category) {
-                    case 'food': tags = `["amenity"~"restaurant|fast_food|food_court"]["cuisine"]`; break;
+                    case 'food': tags = `["amenity"~"restaurant|food_court"]["cuisine"]`; break;
+                    case 'fast_food': tags = `["amenity"="fast_food"]`; break;
                     case 'coffee': tags = `["amenity"="cafe"]`; break;
                     case 'drinks': tags = `["amenity"="cafe"]["cuisine"~"bubble_tea|tea"]`; break;
+                    case 'convenience': tags = `["shop"="convenience"]`; break;
                 }
                 return `[out:json][timeout:25];(node${tags}(around:${radius},${lat},${lon});way${tags}(around:${radius},${lat},${lon});relation${tags}(around:${radius},${lat},${lon}););out body;>;out skel qt;`;
             }
@@ -369,10 +374,24 @@
                 try {
                     const response = await fetch(url);
                     const data = await response.json();
-                    allResults = data.elements.filter(el => el.tags && el.tags.name).map(el => {
-                        const pos = el.type === 'node' ? {lat: el.lat, lon: el.lon} : {lat: el.center.lat, lon: el.center.lon};
-                        return { id: el.id, name: el.tags.name, lat: pos.lat, lon: pos.lon };
-                    });
+                    allResults = data.elements
+                        .filter(el => {
+                            // Ensure the element has a name and valid coordinates
+                            if (!el.tags || !el.tags.name) return false;
+                            if (el.type === 'node') {
+                                return el.lat && el.lon;
+                            }
+                            if (el.type === 'way' || el.type === 'relation') {
+                                return el.center && el.center.lat && el.center.lon;
+                            }
+                            return false;
+                        })
+                        .map(el => {
+                            const pos = el.type === 'node' 
+                                ? { lat: el.lat, lon: el.lon } 
+                                : { lat: el.center.lat, lon: el.center.lon };
+                            return { id: el.id, name: el.tags.name, lat: pos.lat, lon: pos.lon };
+                        });
                     displayResults(allResults);
                 } catch (error) {
                     console.error("Overpass API error:", error);
@@ -383,6 +402,7 @@
             }
 
             function displayResults(results) {
+                resultsList.innerHTML = '';
                 if (results.length === 0) {
                     resultsList.innerHTML = `<p class="text-gray-500 text-center py-4">在此範圍內找不到店家。</p>`;
                     return;
@@ -420,8 +440,8 @@
                 const categoryText = categorySelect.options[categorySelect.selectedIndex].text;
                 const storeNames = allResults.map(r => r.name).join(', ');
 
-                const userQuery = `從這份店家清單中，推薦5間最值得去的店家，並為每一間提供一個簡短、吸引人的一句話推薦理由。店家類型是：'${categoryText}'。店家清單如下：${storeNames}`;
-                const systemPrompt = `你是一位友善的台灣在地美食導遊。請以繁體中文回答。你的回答必須是 JSON 格式的陣列，其中包含 5 個物件。每個物件都應有 "name" (店家名稱) 和 "reason" (推薦理由) 兩個鍵。店家名稱必須從提供的清單中選出。`;
+                const userQuery = `從這份店家清單中，推薦5間最值得去的店家。針對每一間店，請幻想並推薦一個最經典或必點的菜單品項，並分別提供店家推薦理由和該品項的推薦理由。店家類型是：'${categoryText}'。店家清單如下：${storeNames}`;
+                const systemPrompt = `你是一位友善且富有想像力的台灣在地美食導遊。請以繁體中文回答。你的回答必須是 JSON 格式的陣列，其中包含 5 個物件。每個物件都應有 "name" (店家名稱), "reason" (店家推薦理由), "menuItem" (推薦菜單品項), 和 "itemReason" (品項推薦理由) 四個鍵。店家名稱必須從提供的清單中選出。菜單品項和其理由可以是基於店家類型和名稱的合理推測或創意發想。`;
                 const apiKey = "AIzaSyBzl00WUqXPYjPV6jMTHCyyDm5qM_aJzFQ";
                 const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
 
@@ -436,9 +456,11 @@
                                 type: "OBJECT",
                                 properties: {
                                     name: { type: "STRING" },
-                                    reason: { type: "STRING" }
+                                    reason: { type: "STRING" },
+                                    menuItem: { type: "STRING" },
+                                    itemReason: { type: "STRING" }
                                 },
-                                required: ["name", "reason"]
+                                required: ["name", "reason", "menuItem", "itemReason"]
                             }
                         }
                     }
@@ -482,7 +504,11 @@
                     recItem.innerHTML = `
                         <h3 class="font-bold text-lg text-indigo-700">${rec.name}</h3>
                         <p class="text-gray-600 my-2">“${rec.reason}”</p>
-                        <button class="gemini-route-btn text-sm text-white bg-blue-500 hover:bg-blue-600 rounded-full px-4 py-1.5">規劃步行路線</button>
+                        <div class="mt-3 pt-3 border-t border-gray-200">
+                          <p class="font-semibold text-gray-800">推薦品項：<span class="font-bold text-purple-600">${rec.menuItem}</span></p>
+                          <p class="text-gray-600 text-sm mt-1">${rec.itemReason}</p>
+                        </div>
+                        <button class="gemini-route-btn text-sm text-white bg-blue-500 hover:bg-blue-600 rounded-full px-4 py-1.5 mt-4">規劃步行路線</button>
                     `;
                     recItem.querySelector('.gemini-route-btn').addEventListener('click', () => {
                         toggleGeminiModal(false);
@@ -538,4 +564,5 @@
     </script>
 </body>
 </html>
+
 
